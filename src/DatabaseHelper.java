@@ -62,18 +62,34 @@ public class DatabaseHelper {
         return -1;
     }
 
+    /**
+     * SMART BOOKING: Merges identical tickets or creates new ones.
+     * Also saves airport routes to prevent "null -> null" errors.
+     */
     public static boolean bookFlight(int customerId, String flightNum, String airlineId, String seatClass, boolean isFlex, float additionalFare, boolean meal, int qtyToAdd) {
         Connection conn = null;
         try {
             conn = getConnection();
             conn.setAutoCommit(false);
 
-            // 1. Check for an existing ACTIVE ticket with the EXACT SAME customizations
+            // 1. Fetch Airport Codes to ensure "Route" is saved correctly
+            String depAir = "", arrAir = "";
+            String routeSQL = "SELECT departure_airport, arrival_airport FROM Flight WHERE flight_number = ?";
+            try (PreparedStatement ps = conn.prepareStatement(routeSQL)) {
+                ps.setString(1, flightNum);
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    depAir = rs.getString(1);
+                    arrAir = rs.getString(2);
+                }
+            }
+
+            // 2. Check for an existing ACTIVE ticket with EXACT matching customizations [cite: 137, 138, 141]
             String findMatchSQL = "SELECT t.ticket_number FROM Ticket t " +
-                                "JOIN Ticket_Segment s ON t.ticket_number = s.ticket_number " +
-                                "WHERE t.customer_id = ? AND s.flight_number = ? AND s.airline_id = ? " +
-                                "AND s.class = ? AND t.is_flexible = ? AND s.special_meal = ? " +
-                                "AND t.status = 'active' LIMIT 1";
+                                  "JOIN Ticket_Segment s ON t.ticket_number = s.ticket_number " +
+                                  "WHERE t.customer_id = ? AND s.flight_number = ? AND s.airline_id = ? " +
+                                  "AND s.class = ? AND t.is_flexible = ? AND s.special_meal = ? " +
+                                  "AND t.status = 'active' LIMIT 1";
             
             int existingTicketNum = -1;
             try (PreparedStatement matchStmt = conn.prepareStatement(findMatchSQL)) {
@@ -88,9 +104,8 @@ public class DatabaseHelper {
             }
 
             int finalTicketNum;
-
             if (existingTicketNum != -1) {
-                // OPTION A: Match found! Update existing ticket quantity and fare.
+                // OPTION A: Match found. Update quantity and fare. [cite: 137]
                 finalTicketNum = existingTicketNum;
                 String updateTicketSQL = "UPDATE Ticket SET quantity = quantity + ?, total_fare = total_fare + ? WHERE ticket_number = ?";
                 try (PreparedStatement uStmt = conn.prepareStatement(updateTicketSQL)) {
@@ -100,25 +115,20 @@ public class DatabaseHelper {
                     uStmt.executeUpdate();
                 }
             } else {
-                // OPTION B: No match. Create a brand new ticket.
+                // OPTION B: No match. Create new ticket. [cite: 137, 138]
                 finalTicketNum = (int)(Math.random() * 900000) + 100000;
-                String insertTicketSQL = "INSERT INTO Ticket (ticket_number, customer_id, total_fare, purchase_datetime, status, is_flexible, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                String insertTicketSQL = "INSERT INTO Ticket (ticket_number, customer_id, total_fare, purchase_datetime, status, is_flexible, quantity) VALUES (?, ?, ?, NOW(), 'active', ?, ?)";
                 try (PreparedStatement iStmt = conn.prepareStatement(insertTicketSQL)) {
                     iStmt.setInt(1, finalTicketNum);
                     iStmt.setInt(2, customerId);
                     iStmt.setFloat(3, additionalFare);
-                    iStmt.setTimestamp(4, Timestamp.valueOf(java.time.LocalDateTime.now()));
-                    iStmt.setString(5, "active");
-                    iStmt.setBoolean(6, isFlex);
-                    iStmt.setInt(7, qtyToAdd);
+                    iStmt.setBoolean(4, isFlex);
+                    iStmt.setInt(5, qtyToAdd);
                     iStmt.executeUpdate();
                 }
             }
 
-            // 3. In both cases, we must add the new seat segments
-            String segmentSQL = "INSERT INTO Ticket_Segment (ticket_number, sequence_number, flight_number, airline_id, flight_date, class, special_meal, seat_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            
-            // Find the current max sequence number for this ticket to avoid primary key conflicts
+            // 3. Add the individual seat segments [cite: 140, 141]
             int startSeq = 1;
             String seqSQL = "SELECT MAX(sequence_number) FROM Ticket_Segment WHERE ticket_number = ?";
             try (PreparedStatement seqStmt = conn.prepareStatement(seqSQL)) {
@@ -127,6 +137,7 @@ public class DatabaseHelper {
                 if (rs.next()) startSeq = rs.getInt(1) + 1;
             }
 
+            String segmentSQL = "INSERT INTO Ticket_Segment (ticket_number, sequence_number, flight_number, airline_id, flight_date, class, special_meal, seat_number, from_airport, to_airport) VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?)";
             try (PreparedStatement sStmt = conn.prepareStatement(segmentSQL)) {
                 for (int i = 0; i < qtyToAdd; i++) {
                     String seat = (new java.util.Random().nextInt(30) + 1) + "" + (char)('A' + new java.util.Random().nextInt(6));
@@ -134,10 +145,11 @@ public class DatabaseHelper {
                     sStmt.setInt(2, startSeq + i);
                     sStmt.setString(3, flightNum);
                     sStmt.setString(4, airlineId);
-                    sStmt.setDate(5, new java.sql.Date(System.currentTimeMillis()));
-                    sStmt.setString(6, seatClass);
-                    sStmt.setBoolean(7, meal);
-                    sStmt.setString(8, seat);
+                    sStmt.setString(5, seatClass);
+                    sStmt.setBoolean(6, meal);
+                    sStmt.setString(7, seat);
+                    sStmt.setString(8, depAir);
+                    sStmt.setString(9, arrAir);
                     sStmt.executeUpdate();
                 }
             }
@@ -155,14 +167,15 @@ public class DatabaseHelper {
 
 
     public static ResultSet getCustomerTickets(int customerId) throws SQLException {
-        String query = "SELECT t.ticket_number, " +
-                    "MAX(s.flight_number) AS flight_number, " +
-                    "MAX(s.airline_id) AS airline_id, " +
-                    "MAX(s.flight_date) AS flight_date, " +
-                    "MAX(s.class) AS class, " +
-                    "t.total_fare, t.status, t.is_flexible, t.quantity " +
+        // This query joins with the Airline table to get the full name [cite: 25, 26]
+        // It also selects from_airport and to_airport to fix the "null -> null" issue [cite: 35]
+        String query = "SELECT t.ticket_number, MAX(s.flight_number) AS flight_number, " +
+                    "MAX(a.name) AS airline_name, MAX(s.flight_date) AS flight_date, " +
+                    "MAX(s.from_airport) AS from_airport, MAX(s.to_airport) AS to_airport, " +
+                    "MAX(s.class) AS class, t.total_fare, t.status, t.is_flexible, t.quantity " +
                     "FROM Ticket t " +
                     "JOIN Ticket_Segment s ON t.ticket_number = s.ticket_number " +
+                    "JOIN Airline a ON s.airline_id = a.airline_id " +
                     "WHERE t.customer_id = ? " +
                     "GROUP BY t.ticket_number";
         
