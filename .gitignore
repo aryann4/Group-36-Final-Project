@@ -1,0 +1,19 @@
+# Compiled Java files
+*.class
+
+# Logs
+*.log
+
+# Build folders
+bin/
+target/
+
+# VS Code settings
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
