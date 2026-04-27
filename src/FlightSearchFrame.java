@@ -6,28 +6,41 @@ import java.awt.*;
 import java.sql.*;
 
 public class FlightSearchFrame extends JFrame {
-    private JTextField fromField, toField, dateField, maxPriceField;
+    private JTextField fromField, toField, dateField, returnDateField, maxPriceField;
     private JCheckBox flexCheck;
+    private JRadioButton oneWayRadio, roundTripRadio;
     private JComboBox<String> sortBox, airlineFilter;
     private JTable resultsTable;
     private DefaultTableModel tableModel;
     private String currentUsername;
 
+    private boolean isSelectingReturn = false;
+    private Object[] outboundLegData = null;
+
     public FlightSearchFrame(String username) {
         this.currentUsername = username;
         setTitle("Search & Book Flights");
-        setSize(950, 650);
+        setSize(1100, 650);
         setLayout(new BorderLayout());
         setLocationRelativeTo(null);
 
-        // --- Top Panel: Search, Sort, and Filter ---
-        JPanel topPanel = new JPanel();
-        topPanel.setLayout(new GridLayout(3, 1));
-
+        JPanel topPanel = new JPanel(new GridLayout(3, 1));
         JPanel p1 = new JPanel();
+        oneWayRadio = new JRadioButton("One-Way", true);
+        roundTripRadio = new JRadioButton("Round-Trip");
+        ButtonGroup tripGroup = new ButtonGroup();
+        tripGroup.add(oneWayRadio); tripGroup.add(roundTripRadio);
+        p1.add(oneWayRadio); p1.add(roundTripRadio);
+
         p1.add(new JLabel("From:")); fromField = new JTextField(4); p1.add(fromField);
         p1.add(new JLabel("To:")); toField = new JTextField(4); p1.add(toField);
-        p1.add(new JLabel("Date (YYYY-MM-DD):")); dateField = new JTextField("2026-04-26", 8); p1.add(dateField);
+        p1.add(new JLabel("Dep. Date:")); dateField = new JTextField("2026-04-26", 8); p1.add(dateField);
+        
+        JLabel retLbl = new JLabel("Ret. Date:");
+        returnDateField = new JTextField("2026-04-30", 8);
+        returnDateField.setEnabled(false); 
+        p1.add(retLbl); p1.add(returnDateField);
+        
         flexCheck = new JCheckBox("Flexible (+/- 3 days)"); p1.add(flexCheck);
         topPanel.add(p1);
 
@@ -44,128 +57,147 @@ public class FlightSearchFrame extends JFrame {
         topPanel.add(p3);
         add(topPanel, BorderLayout.NORTH);
 
-        // --- Center: Results ---
-        // Updated columns to match the 10 data points added in performSearch
-        String[] columns = {"Flight #", "Airline ID", "Airline", "From", "To", "Dep. Date", "Arr. Date", "Departs", "Arrives", "Base Price"};
+        String[] columns = {"Flight(s) #", "Airline ID", "Airline", "From", "To", "Dep. Date", "Arr. Date", "Departs", "Arrives", "Stops", "Price"};
         tableModel = new DefaultTableModel(columns, 0);
         resultsTable = new JTable(tableModel);
         add(new JScrollPane(resultsTable), BorderLayout.CENTER);
 
-        // --- Bottom: Booking ---
         JButton bookBtn = new JButton("Book Selected Flight");
         add(bookBtn, BorderLayout.SOUTH);
 
-        // --- LISTENERS ---
+        roundTripRadio.addActionListener(e -> returnDateField.setEnabled(true));
+        oneWayRadio.addActionListener(e -> {
+            returnDateField.setEnabled(false);
+            isSelectingReturn = false; 
+            outboundLegData = null;
+        });
+
         searchBtn.addActionListener(e -> performSearch());
 
         bookBtn.addActionListener(e -> {
             int row = resultsTable.getSelectedRow();
             if (row == -1) {
-                JOptionPane.showMessageDialog(this, "Please select a flight first.");
+                JOptionPane.showMessageDialog(this, "Please select a flight leg first.");
                 return;
             }
 
-            // --- EXTRACT DYNAMIC DATA FROM THE TABLE ---
+            // Case 1: Handle Round-Trip Outbound Selection
+            if (roundTripRadio.isSelected() && !isSelectingReturn) {
+                int confirm = JOptionPane.showConfirmDialog(this, "Outbound flight selected! Search for your return flight now?", "Outbound Confirmed", JOptionPane.YES_NO_OPTION);
+                
+                if (confirm == JOptionPane.YES_OPTION) {
+                    outboundLegData = new Object[tableModel.getColumnCount()];
+                    for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                        outboundLegData[i] = tableModel.getValueAt(row, i);
+                    }
+                    isSelectingReturn = true;
+                    // Auto-flip for consistency
+                    fromField.setText((String) outboundLegData[4]); 
+                    toField.setText((String) outboundLegData[3]);   
+                    airlineFilter.setSelectedItem((String) outboundLegData[1]);
+                    performSearch(); 
+                    return;
+                } else {
+                    // Reset to one-way logic if user says No
+                    isSelectingReturn = false;
+                    outboundLegData = null;
+                }
+            }
+
+            // Case 2: Finalizing Selection (One-Way or Return leg)
             String fNum = (String) tableModel.getValueAt(row, 0);
             String aId = (String) tableModel.getValueAt(row, 1);
-            
-            // Route: From (Col 3) -> To (Col 4)
-            String route = tableModel.getValueAt(row, 3) + " -> " + tableModel.getValueAt(row, 4);
-            
-            // Departure: Date (Col 5) @ Time (Col 7)
-            String depInfo = tableModel.getValueAt(row, 5) + " @ " + tableModel.getValueAt(row, 7);
-            
-            // Arrival: Date (Col 6) @ Time (Col 8)
-            String arrInfo = tableModel.getValueAt(row, 6) + " @ " + tableModel.getValueAt(row, 8);
-            
-            // Extracts and cleans the price (Col 9) for the dialog [cite: 36, 65]
-            float bPrice = Float.parseFloat(((String) tableModel.getValueAt(row, 9)).replace("$", ""));
+            float currentPrice = Float.parseFloat(((String) tableModel.getValueAt(row, 10)).replace("$", ""));
 
-            int cId = DatabaseHelper.getCustomerId(currentUsername);
+            String finalFlightList = fNum;
+            float finalBasePrice = currentPrice;
+            String routeDesc = tableModel.getValueAt(row, 3) + " -> " + tableModel.getValueAt(row, 4);
 
-            // --- 2. GATEKEEPER: CAPACITY & WAITING LIST ---
-            int totalLeft = DatabaseHelper.getSeatsRemaining(fNum, "Economy") + 
-                            DatabaseHelper.getSeatsRemaining(fNum, "Business") + 
-                            DatabaseHelper.getSeatsRemaining(fNum, "First");
-
-            if (totalLeft <= 0) {
-                if (DatabaseHelper.isAlreadyOnWaitingList(cId, fNum)) {
-                    JOptionPane.showMessageDialog(this, "You are already on the waiting list for this flight.");
-                    return;
-                }
-                int choice = JOptionPane.showConfirmDialog(this, "Flight is full. Join Waiting List?", "Full", JOptionPane.YES_NO_OPTION);
-                if (choice == JOptionPane.YES_OPTION) {
-                    DatabaseHelper.addToWaitingList(cId, fNum, aId, "Economy");
-                    int pos = DatabaseHelper.getWaitlistPosition(cId, fNum);
-                    JOptionPane.showMessageDialog(this, "Added to Waitlist! Your position is: " + pos);
-                }
-                return;
+            if (roundTripRadio.isSelected() && outboundLegData != null) {
+                finalFlightList = outboundLegData[0] + "," + fNum;
+                float outboundPrice = Float.parseFloat(((String) outboundLegData[10]).replace("$", ""));
+                finalBasePrice = outboundPrice + currentPrice;
+                routeDesc = outboundLegData[3] + " <-> " + outboundLegData[4] + " (Round Trip)";
             }
 
-            // --- 3. NORMAL FLOW: OPEN DIALOG WITH DYNAMIC DATA ---
-            // Now calling constructor with 6 arguments
-            BookingOptionsDialog dialog = new BookingOptionsDialog(this, fNum, route, depInfo, arrInfo, bPrice);
+            String depInfo = tableModel.getValueAt(row, 5) + " @ " + tableModel.getValueAt(row, 7);
+            String arrInfo = tableModel.getValueAt(row, 6) + " @ " + tableModel.getValueAt(row, 8);
+
+            BookingOptionsDialog dialog = new BookingOptionsDialog(this, finalFlightList, routeDesc, depInfo, arrInfo, finalBasePrice);
             dialog.setVisible(true);
 
             if (dialog.isConfirmed()) {
+                int cId = DatabaseHelper.getCustomerId(currentUsername);
                 boolean success = DatabaseHelper.bookFlight(
-                    cId, fNum, aId, dialog.getSelectedClass(), 
+                    cId, finalFlightList, aId, dialog.getSelectedClass(), 
                     dialog.isFlexible(), dialog.getTotalFare(), 
                     dialog.hasSpecialMeal(), dialog.getQuantity()
                 );
-                if (success) JOptionPane.showMessageDialog(this, "Booking confirmed!");
+                
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "Trip Successfully Booked!");
+                    isSelectingReturn = false;
+                    outboundLegData = null;
+                    performSearch(); 
+                }
             }
         });
     }
 
     private void performSearch() {
         if (dateField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter a date (YYYY-MM-DD) to search.");
+            JOptionPane.showMessageDialog(this, "Please enter a departure date.");
             return;
         }
 
         tableModel.setRowCount(0);
         String from = fromField.getText().trim();
         String to = toField.getText().trim();
-        String date = dateField.getText().trim();
-        String maxPrice = maxPriceField.getText().trim();
+        String date = isSelectingReturn ? returnDateField.getText().trim() : dateField.getText().trim();
+        
         String airline = (String) airlineFilter.getSelectedItem();
+        String maxPrice = maxPriceField.getText().trim();
         String sortBy = (String) sortBox.getSelectedItem();
 
-        StringBuilder sql = new StringBuilder("SELECT f.*, a.name FROM Flight f JOIN Airline a ON f.airline_id = a.airline_id WHERE 1=1 ");
-        if (!from.isEmpty()) sql.append(" AND f.departure_airport = '").append(from).append("'");
-        if (!to.isEmpty()) sql.append(" AND f.arrival_airport = '").append(to).append("'");
-        if (!airline.equals("All")) sql.append(" AND f.airline_id = '").append(airline).append("'");
-        if (!maxPrice.isEmpty()) sql.append(" AND f.base_price <= ").append(maxPrice);
+        String fromCond = from.isEmpty() ? "1=1" : "departure_airport = '" + from + "'";
+        String toCond = to.isEmpty() ? "1=1" : "arrival_airport = '" + to + "'";
+        String fromCondV = from.isEmpty() ? "1=1" : "i.dep = '" + from + "'";
+        String toCondV = to.isEmpty() ? "1=1" : "i.dest = '" + to + "'";
 
-        if (flexCheck.isSelected()) {
-            sql.append(" AND f.flight_date BETWEEN DATE_SUB('").append(date).append("', INTERVAL 3 DAY) AND DATE_ADD('").append(date).append("', INTERVAL 3 DAY) ");
-        } else {
-            sql.append(" AND f.flight_date = '").append(date).append("'");
-        }
+        StringBuilder sql = new StringBuilder(
+            "SELECT * FROM (" +
+            "SELECT f.flight_number AS flights, f.airline_id, a.name, f.departure_airport, f.arrival_airport, " +
+            "f.flight_date, f.arrival_date, f.departure_time, f.arrival_time, 0 AS stops, f.base_price " +
+            "FROM Flight f JOIN Airline a ON f.airline_id = a.airline_id " +
+            "WHERE " + fromCond + " AND " + toCond + " " +
+            "AND f.flight_date " + (flexCheck.isSelected() ? "BETWEEN DATE_SUB('" + date + "', INTERVAL 3 DAY) AND DATE_ADD('" + date + "', INTERVAL 3 DAY)" : "= '" + date + "'") +
+            " UNION " +
+            "SELECT CONCAT(i.f1_num, ',', i.f2_num) AS flights, i.air1, a.name, i.dep, i.dest, " +
+            "i.date1, i.date2_arr, i.dep_t1, i.arr_t2, 1 AS stops, i.total_price AS base_price " +
+            "FROM IndirectFlights i JOIN Airline a ON i.air1 = a.airline_id " +
+            "WHERE " + fromCondV + " AND " + toCondV + " AND i.dep != i.dest " +
+            "AND i.date1 " + (flexCheck.isSelected() ? "BETWEEN DATE_SUB('" + date + "', INTERVAL 3 DAY) AND DATE_ADD('" + date + "', INTERVAL 3 DAY)" : "= '" + date + "'") +
+            ") as combined_results WHERE 1=1 "
+        );
 
-        if (sortBy.contains("Price")) {
-            sql.append(" ORDER BY f.base_price ASC");
-        } else if (sortBy.contains("Departure")) {
-            sql.append(" ORDER BY f.flight_date ASC, f.departure_time ASC");
-        } else if (sortBy.contains("Arrival")) {
-            sql.append(" ORDER BY f.arrival_date ASC, f.arrival_time ASC");
-        } else if (sortBy.contains("Duration")) {
-            sql.append(" ORDER BY TIMESTAMPDIFF(MINUTE, CONCAT(f.flight_date, ' ', f.departure_time), CONCAT(f.arrival_date, ' ', f.arrival_time)) ASC");
+        if (!airline.equals("All")) sql.append(" AND airline_id = '").append(airline).append("'");
+        if (!maxPrice.isEmpty()) sql.append(" AND base_price <= ").append(maxPrice);
+
+        if (sortBy.contains("Price")) sql.append(" ORDER BY base_price ASC");
+        else if (sortBy.contains("Departure")) sql.append(" ORDER BY flight_date ASC, departure_time ASC");
+        else if (sortBy.contains("Arrival")) sql.append(" ORDER BY arrival_date ASC, arrival_time ASC");
+        else if (sortBy.contains("Duration")) {
+            sql.append(" ORDER BY TIMESTAMPDIFF(MINUTE, CONCAT(flight_date, ' ', departure_time), CONCAT(arrival_date, ' ', arrival_time)) ASC");
         }
 
         try (Connection conn = DatabaseHelper.getConnection(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql.toString())) {
             while (rs.next()) {
                 tableModel.addRow(new Object[]{
-                    rs.getString("flight_number"), 
-                    rs.getString("airline_id"), 
-                    rs.getString("name"),
-                    rs.getString("departure_airport"), 
-                    rs.getString("arrival_airport"), 
-                    rs.getDate("flight_date"),
-                    rs.getDate("arrival_date"), 
-                    rs.getTime("departure_time"), 
-                    rs.getTime("arrival_time"), 
+                    rs.getString("flights"), rs.getString("airline_id"), rs.getString("name"),
+                    rs.getString("departure_airport"), rs.getString("arrival_airport"), 
+                    rs.getDate("flight_date"), rs.getDate("arrival_date"), 
+                    rs.getTime("departure_time"), rs.getTime("arrival_time"), 
+                    rs.getInt("stops") == 0 ? "Non-stop" : "1 Stop",
                     "$" + rs.getFloat("base_price")
                 });
             }

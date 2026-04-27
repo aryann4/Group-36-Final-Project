@@ -16,7 +16,7 @@ public class MyReservationsFrame extends JFrame {
         setLocationRelativeTo(null);
 
         // Added "Route" to the columns list
-        String[] columns = {"Ticket #", "Flight #", "Airline", "Route", "Date", "Class", "Qty", "Flex", "Fare", "Status"};
+        String[] columns = {"Ticket #", "Flight #", "Airline", "Route", "Dep. Date", "Arr. Date", "Class", "Qty", "Flex", "Fare", "Status"};
         model = new DefaultTableModel(columns, 0);
         JTable table = new JTable(model);
         add(new JScrollPane(table), BorderLayout.CENTER);
@@ -90,9 +90,10 @@ public class MyReservationsFrame extends JFrame {
                 model.addRow(new Object[]{
                     rs.getInt("ticket_number"),
                     rs.getString("flight_number"),
-                    rs.getString("airline_name"), // Fetched via the new join [cite: 26]
-                    rs.getString("from_airport") + " -> " + rs.getString("to_airport"), // Displays the route [cite: 35]
-                    rs.getDate("flight_date"),
+                    rs.getString("airline_name"),
+                    rs.getString("from_airport") + " -> " + rs.getString("to_airport"),
+                    rs.getDate("dep_date"), // New Column 1
+                    rs.getDate("arr_date"), // New Column 2
                     rs.getString("class"),
                     rs.getInt("quantity"),
                     rs.getBoolean("is_flexible") ? "Yes" : "No",
