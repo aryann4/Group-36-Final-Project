@@ -332,4 +332,40 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); }
         return 1; 
     }
+
+
+
+
+    // --- NEW Q&A SYSTEM METHODS ---
+
+    /**
+     * Browses the QA table. If keyword is provided, filters by that word.
+     */
+    public static ResultSet getQAEntries(String keyword) throws SQLException {
+        String query = "SELECT question_text, COALESCE(answer_text, 'Pending Response...') AS answer_text " +
+                       "FROM QA_Entry WHERE question_text LIKE ? OR answer_text LIKE ? " +
+                       "ORDER BY created_at DESC";
+        Connection conn = getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query);
+        String searchPattern = "%" + keyword + "%";
+        stmt.setString(1, searchPattern);
+        stmt.setString(2, searchPattern);
+        return stmt.executeQuery();
+    }
+
+    /**
+     * Posts a new question to the database.
+     */
+    public static boolean postQuestion(int customerId, String question) {
+        String sql = "INSERT INTO QA_Entry (customer_id, question_text) VALUES (?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, customerId);
+            stmt.setString(2, question);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
