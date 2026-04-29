@@ -3,6 +3,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.*;
+import java.time.LocalDateTime;
 
 public class MyReservationsFrame extends JFrame {
     private DefaultTableModel model;
@@ -11,11 +12,11 @@ public class MyReservationsFrame extends JFrame {
     public MyReservationsFrame(String username) {
         this.username = username;
         setTitle("My Reservations - " + username);
-        setSize(750, 450); // Increased width slightly for the Route column
+        setSize(850, 450); // Increased width for extra date/status columns
         setLayout(new BorderLayout());
         setLocationRelativeTo(null);
 
-        // Added "Route" to the columns list
+        // Columns matches the updated query in DatabaseHelper
         String[] columns = {"Ticket #", "Flight #", "Airline", "Route", "Dep. Date", "Arr. Date", "Class", "Qty", "Flex", "Fare", "Status"};
         model = new DefaultTableModel(columns, 0);
         JTable table = new JTable(model);
@@ -70,15 +71,40 @@ public class MyReservationsFrame extends JFrame {
         refreshData();
 
         refreshBtn.addActionListener(e -> refreshData());
+
+        // UPDATED: Cancellation vs. History Clearing Logic
         cancelBtn.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row != -1) {
                 int ticketNum = (int) model.getValueAt(row, 0);
-                if (JOptionPane.showConfirmDialog(this, "Cancel Ticket #" + ticketNum + "?") == JOptionPane.YES_OPTION) {
-                    if (DatabaseHelper.cancelBooking(ticketNum)) refreshData();
+                String ticketClass = (String) model.getValueAt(row, 6);
+                String displayStatus = (String) model.getValueAt(row, 10); // Calculated Status
+
+                String message;
+                String title = "Confirm Action";
+
+                if (displayStatus.equalsIgnoreCase("completed")) {
+                    // Logic for Past Flights: Clear history with no fee mention
+                    message = "Would you like to remove this completed flight #" + ticketNum + " from your history?";
+                    title = "Clear History";
+                } else {
+                    // Logic for Active Flights: Standard cancellation with Economy disclaimer
+                    message = "Are you sure you want to cancel Ticket #" + ticketNum + "?";
+                    if (ticketClass.equalsIgnoreCase("Economy")) {
+                        message = "DISCLAIMER: Economy tickets are subject to a $50 cancellation fee.\n" +
+                                  "Do you wish to proceed with cancelling Ticket #" + ticketNum + "?";
+                    }
+                    title = "Confirm Cancellation";
+                }
+
+                if (JOptionPane.showConfirmDialog(this, message, title, JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    if (DatabaseHelper.cancelBooking(ticketNum)) {
+                        refreshData();
+                    }
                 }
             }
         });
+
         closeBtn.addActionListener(e -> dispose());
     }
 
@@ -87,18 +113,30 @@ public class MyReservationsFrame extends JFrame {
         int customerId = DatabaseHelper.getCustomerId(username);
         try (ResultSet rs = DatabaseHelper.getCustomerTickets(customerId)) {
             while (rs.next()) {
+                // Combine Date and Time from DB for a live comparison
+                Date arrDate = rs.getDate("arr_date");
+                Time arrTime = rs.getTime("arr_time");
+                
+                String displayStatus = "active";
+                if (arrDate != null && arrTime != null) {
+                    LocalDateTime arrival = LocalDateTime.of(arrDate.toLocalDate(), arrTime.toLocalTime());
+                    if (LocalDateTime.now().isAfter(arrival)) {
+                        displayStatus = "completed";
+                    }
+                }
+
                 model.addRow(new Object[]{
                     rs.getInt("ticket_number"),
                     rs.getString("flight_number"),
                     rs.getString("airline_name"),
                     rs.getString("from_airport") + " -> " + rs.getString("to_airport"),
-                    rs.getDate("dep_date"), // New Column 1
-                    rs.getDate("arr_date"), // New Column 2
+                    rs.getDate("dep_date"), 
+                    rs.getDate("arr_date"), 
                     rs.getString("class"),
                     rs.getInt("quantity"),
                     rs.getBoolean("is_flexible") ? "Yes" : "No",
                     "$" + rs.getFloat("total_fare"),
-                    rs.getString("status")
+                    displayStatus // Use the live-calculated status
                 });
             }
         } catch (SQLException e) { e.printStackTrace(); }

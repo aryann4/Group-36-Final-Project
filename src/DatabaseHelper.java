@@ -153,14 +153,15 @@ public class DatabaseHelper {
         }
     }
 
+    // 4. Retrieve Reservations (Identifies first and last airport for accurate Route display)
+    // UPDATED: Now also retrieves arr_time for precise "active" vs "completed" checks.
     public static ResultSet getCustomerTickets(int customerId) throws SQLException {
-        // This query pulls the first flight_date as dep_date 
-        // and joins with the Flight table to find the final arrival_date for arr_date
         String query = "SELECT t.ticket_number, " +
                     "GROUP_CONCAT(DISTINCT s.flight_number ORDER BY s.sequence_number SEPARATOR ', ') AS flight_number, " +
                     "MAX(a.name) AS airline_name, " +
                     "(SELECT s2.flight_date FROM Ticket_Segment s2 WHERE s2.ticket_number = t.ticket_number ORDER BY s2.sequence_number ASC LIMIT 1) AS dep_date, " +
                     "(SELECT f.arrival_date FROM Ticket_Segment s3 JOIN Flight f ON s3.flight_number = f.flight_number WHERE s3.ticket_number = t.ticket_number ORDER BY s3.sequence_number DESC LIMIT 1) AS arr_date, " +
+                    "(SELECT f.arrival_time FROM Ticket_Segment s3 JOIN Flight f ON s3.flight_number = f.flight_number WHERE s3.ticket_number = t.ticket_number ORDER BY s3.sequence_number DESC LIMIT 1) AS arr_time, " +
                     "(SELECT from_airport FROM Ticket_Segment s2 WHERE s2.ticket_number = t.ticket_number ORDER BY sequence_number ASC LIMIT 1) AS from_airport, " +
                     "(SELECT to_airport FROM Ticket_Segment s2 WHERE s2.ticket_number = t.ticket_number ORDER BY sequence_number DESC LIMIT 1) AS to_airport, " +
                     "MAX(s.class) AS class, t.total_fare, t.status, t.is_flexible, t.quantity " +
@@ -269,7 +270,6 @@ public class DatabaseHelper {
 
     /**
      * 10. Calculate remaining capacity for a specific flight class
-     * UPDATED: Now checks every flight leg in a comma-separated list and is NULL-safe
      */
     public static int getSeatsRemaining(String flightNums, String seatClass) {
         String[] legs = flightNums.split(",");
