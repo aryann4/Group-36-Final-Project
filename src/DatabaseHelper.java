@@ -47,6 +47,7 @@ public class DatabaseHelper {
     /**
      * UPDATED BOOKING ENGINE: Now allows merging/stacking for ALL flight types,
      * including multi-leg journeys and Round-Trips.
+     * Also automatically removes user from the waitlist upon successful booking.
      */
     public static boolean bookFlight(int customerId, String flightNums, String airlineId, String seatClass, boolean isFlex, float totalFare, boolean meal, int qtyToAdd) {
         Connection conn = null;
@@ -141,6 +142,9 @@ public class DatabaseHelper {
                 }
                 sStmt.executeBatch();
             }
+
+            // CLEANUP: Remove user from waitlist for this flight after successful booking
+            removeFromWaitingList(customerId, flightNums);
 
             conn.commit();
             return true;
@@ -367,5 +371,50 @@ public class DatabaseHelper {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Scans the waitlist for the current user and returns a list of flights 
+     * that now have available seats.
+     */
+    public static String checkWaitlistAlerts(int customerId) {
+        String query = "SELECT flight_number, airline_id, class FROM Waiting_List WHERE customer_id = ?";
+        StringBuilder availableFlights = new StringBuilder();
+
+        try (Connection conn = getConnection();
+            PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, customerId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                String fNum = rs.getString("flight_number");
+                String aId = rs.getString("airline_id");
+                String sClass = rs.getString("class");
+
+                // Leverage your existing logic that checks multi-leg capacity
+                int remaining = getSeatsRemaining(fNum, sClass);
+                if (remaining > 0) {
+                    if (availableFlights.length() > 0) availableFlights.append("\n");
+                    availableFlights.append("- ").append(aId).append(" ").append(fNum).append(" (").append(sClass).append(")");
+                }
+            }
+        } catch (SQLException e) { 
+            e.printStackTrace(); 
+        }
+
+        return availableFlights.toString();
+    }
+
+    /**
+     * NEW: Removes a specific user from the waitlist for a specific flight.
+     */
+    public static void removeFromWaitingList(int customerId, String flightNum) {
+        String sql = "DELETE FROM Waiting_List WHERE customer_id = ? AND flight_number = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, customerId);
+            stmt.setString(2, flightNum);
+            stmt.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); }
     }
 }

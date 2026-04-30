@@ -4,11 +4,12 @@ import java.awt.*;
 
 public class CustomerDashboard extends JFrame {
     public CustomerDashboard(String username) {
-
+        // Retrieve account info
         String creationDate = DatabaseHelper.getAccountCreationDate(username);
+        int customerId = DatabaseHelper.getCustomerId(username);
 
         setTitle("Customer Dashboard - " + username);
-        setSize(500, 450); // Increased height slightly for the new button
+        setSize(500, 450); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
         setLocationRelativeTo(null);
@@ -19,7 +20,6 @@ public class CustomerDashboard extends JFrame {
 
         // Buttons for main features
         JPanel buttonPanel = new JPanel();
-        // Updated to 4 rows to include the Q&A button
         buttonPanel.setLayout(new GridLayout(4, 1, 10, 10));
 
         JButton searchButton = new JButton("Search for Flights");
@@ -37,23 +37,32 @@ public class CustomerDashboard extends JFrame {
         JLabel footerLabel = new JLabel("Member since: " + creationDate, SwingConstants.RIGHT);
         add(footerLabel, BorderLayout.SOUTH);
 
-        // Logout functionality
+        // --- NEW: Waitlist Alert Logic ---
+        // This runs immediately when the dashboard opens
+        String alerts = DatabaseHelper.checkWaitlistAlerts(customerId);
+        if (alerts != null && !alerts.isEmpty()) {
+            JOptionPane.showMessageDialog(this, 
+                "WAITLIST ALERT!\nSeats have become available for the following flights:\n" + alerts + 
+                "\n\nGo to 'Search for Flights' to book your seat now!", 
+                "Flight Availability Notification", 
+                JOptionPane.INFORMATION_MESSAGE);
+        }
+
+        // --- Action Listeners ---
+
         logoutButton.addActionListener(e -> {
             new LoginFrame().setVisible(true);
             dispose();
         });
 
-        // Search Screen link
         searchButton.addActionListener(e -> {
             new FlightSearchFrame(username).setVisible(true);
         });
 
-        // My Reservations link
         viewTicketsButton.addActionListener(e -> {
             new MyReservationsFrame(username).setVisible(true);
         });
 
-        // Help & Q&A link
         qaBtn.addActionListener(e -> {
             new QAFrame(username).setVisible(true);
         });

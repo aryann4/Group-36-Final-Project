@@ -81,9 +81,10 @@ public class FlightSearchFrame extends JFrame {
                 return;
             }
 
-            // Case 1: Handle Round-Trip Outbound Selection
             if (roundTripRadio.isSelected() && !isSelectingReturn) {
-                int confirm = JOptionPane.showConfirmDialog(this, "Outbound flight selected! Search for your return flight now?", "Outbound Confirmed", JOptionPane.YES_NO_OPTION);
+                int confirm = JOptionPane.showConfirmDialog(this, 
+                    "Outbound flight selected! Search for your return flight now?", 
+                    "Outbound Confirmed", JOptionPane.YES_NO_OPTION);
                 
                 if (confirm == JOptionPane.YES_OPTION) {
                     outboundLegData = new Object[tableModel.getColumnCount()];
@@ -91,20 +92,14 @@ public class FlightSearchFrame extends JFrame {
                         outboundLegData[i] = tableModel.getValueAt(row, i);
                     }
                     isSelectingReturn = true;
-                    // Auto-flip for consistency
                     fromField.setText((String) outboundLegData[4]); 
                     toField.setText((String) outboundLegData[3]);   
                     airlineFilter.setSelectedItem((String) outboundLegData[1]);
                     performSearch(); 
                     return;
-                } else {
-                    // Reset to one-way logic if user says No
-                    isSelectingReturn = false;
-                    outboundLegData = null;
                 }
             }
 
-            // Case 2: Finalizing Selection (One-Way or Return leg)
             String fNum = (String) tableModel.getValueAt(row, 0);
             String aId = (String) tableModel.getValueAt(row, 1);
             float currentPrice = Float.parseFloat(((String) tableModel.getValueAt(row, 10)).replace("$", ""));
@@ -128,17 +123,44 @@ public class FlightSearchFrame extends JFrame {
 
             if (dialog.isConfirmed()) {
                 int cId = DatabaseHelper.getCustomerId(currentUsername);
-                boolean success = DatabaseHelper.bookFlight(
-                    cId, finalFlightList, aId, dialog.getSelectedClass(), 
-                    dialog.isFlexible(), dialog.getTotalFare(), 
-                    dialog.hasSpecialMeal(), dialog.getQuantity()
-                );
-                
-                if (success) {
-                    JOptionPane.showMessageDialog(this, "Trip Successfully Booked!");
-                    isSelectingReturn = false;
-                    outboundLegData = null;
-                    performSearch(); 
+                String selectedClass = dialog.getSelectedClass();
+
+                // --- RE-INSTALLED: Waitlist Gatekeeper Logic ---
+                int available = DatabaseHelper.getSeatsRemaining(finalFlightList, selectedClass);
+
+                if (available > 0) {
+                    boolean success = DatabaseHelper.bookFlight(
+                        cId, finalFlightList, aId, selectedClass, 
+                        dialog.isFlexible(), dialog.getTotalFare(), 
+                        dialog.hasSpecialMeal(), dialog.getQuantity()
+                    );
+                    
+                    if (success) {
+                        JOptionPane.showMessageDialog(this, "Trip Successfully Booked!");
+                        isSelectingReturn = false;
+                        outboundLegData = null;
+                        performSearch(); 
+                    }
+                } else {
+                    // Logic for when the specific class is full
+                    if (DatabaseHelper.isAlreadyOnWaitingList(cId, finalFlightList)) {
+                        JOptionPane.showMessageDialog(this, "You are already on the waiting list for this trip.");
+                    } else {
+                        int join = JOptionPane.showConfirmDialog(this, 
+                            "This flight is currently full in " + selectedClass + ".\n" +
+                            "Would you like to join the Waiting List?", 
+                            "Flight Full", JOptionPane.YES_NO_OPTION);
+                        
+                        if (join == JOptionPane.YES_OPTION) {
+                            DatabaseHelper.addToWaitingList(cId, finalFlightList, aId, selectedClass);
+                            int pos = DatabaseHelper.getWaitlistPosition(cId, finalFlightList);
+                            JOptionPane.showMessageDialog(this, "Added to Waitlist! Your current position is: " + pos);
+                            
+                            isSelectingReturn = false;
+                            outboundLegData = null;
+                            performSearch();
+                        }
+                    }
                 }
             }
         });
