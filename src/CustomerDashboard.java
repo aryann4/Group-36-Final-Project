@@ -56,7 +56,7 @@ public class CustomerDashboard extends JFrame {
         });
 
         searchButton.addActionListener(e -> {
-            new FlightSearchFrame(username).setVisible(true);
+            new FlightSearchFrame(username, false).setVisible(true);
         });
 
         viewTicketsButton.addActionListener(e -> {

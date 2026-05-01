@@ -38,31 +38,45 @@ public class LoginFrame extends JFrame {
         loginButton.setBounds(120, 110, 80, 25);
         add(loginButton);
 
-        // Add this near your loginButton
+        // Sign Up Button
         JButton signUpButton = new JButton("Sign Up");
-        signUpButton.setBounds(210, 110, 80, 25); // Adjusted position to be next to Login
+        signUpButton.setBounds(210, 110, 80, 25); 
         add(signUpButton);
 
-        // Add this listener at the bottom of the constructor
         signUpButton.addActionListener(e -> {
             new RegistrationFrame().setVisible(true);
             dispose();
         });
 
-
-        // This is the logic that runs when you click the button
+        // Updated Login Logic for Multiple Roles
         loginButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 String user = userField.getText();
                 String pass = new String(passField.getPassword());
                 
-                // We call the method you just wrote in DatabaseHelper!
+                // 1. Check if the user is a Customer
                 if (DatabaseHelper.validateLogin(user, pass)) {
-                    JOptionPane.showMessageDialog(null, "Login Successful!");
-                    // Later, we will add code here to open the main search menu
+                    JOptionPane.showMessageDialog(null, "Customer Login Successful!");
                     new CustomerDashboard(user).setVisible(true);
-                    LoginFrame.this.dispose(); // This closes the login window
-                } else {
+                    LoginFrame.this.dispose(); 
+                } 
+                // 2. Check if the user is an Employee
+                else if (DatabaseHelper.validateEmployeeLogin(user, pass)) {
+                    String role = DatabaseHelper.getEmployeeRole(user);
+                    JOptionPane.showMessageDialog(null, "Employee Login Successful! Role: " + role);
+                    
+                    if ("admin".equalsIgnoreCase(role)) {
+                        // This will open the Admin Dashboard once created
+                        // new AdminDashboard(user).setVisible(true);
+                        JOptionPane.showMessageDialog(null, "Redirecting to Admin Dashboard...");
+                    } else if ("representative".equalsIgnoreCase(role)) {
+                        // ACTIVATED: Launches the Representative Dashboard instead of just a popup
+                        new RepresentativeDashboard(user).setVisible(true);
+                    }
+                    LoginFrame.this.dispose(); 
+                } 
+                // 3. Invalid credentials
+                else {
                     JOptionPane.showMessageDialog(null, "Invalid Username or Password.");
                 }
             }

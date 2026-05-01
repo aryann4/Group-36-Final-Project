@@ -7,24 +7,40 @@ import java.sql.*;
 
 public class FlightSearchFrame extends JFrame {
     private JTextField fromField, toField, dateField, returnDateField, maxPriceField;
+    private JTextField targetUserField; // New: Field for CR to input customer username
     private JCheckBox flexCheck;
     private JRadioButton oneWayRadio, roundTripRadio;
     private JComboBox<String> sortBox, airlineFilter;
     private JTable resultsTable;
     private DefaultTableModel tableModel;
     private String currentUsername;
+    private boolean isRepresentative; // New: Flag to track mode
 
     private boolean isSelectingReturn = false;
     private Object[] outboundLegData = null;
 
-    public FlightSearchFrame(String username) {
+    // UPDATED: Constructor now accepts isRepresentative flag
+    public FlightSearchFrame(String username, boolean isRepresentative) {
         this.currentUsername = username;
-        setTitle("Search & Book Flights");
-        setSize(1100, 650);
+        this.isRepresentative = isRepresentative;
+        setTitle(isRepresentative ? "Acting for Users - Search & Book" : "Search & Book Flights");
+        setSize(1100, 700); // Increased height to fit the rep panel
         setLayout(new BorderLayout());
         setLocationRelativeTo(null);
 
-        JPanel topPanel = new JPanel(new GridLayout(3, 1));
+        // Adjust grid rows if in Rep mode
+        JPanel topPanel = new JPanel(new GridLayout(isRepresentative ? 4 : 3, 1));
+
+        // --- NEW: REPRESENTATIVE PROXY PANEL ---
+        if (isRepresentative) {
+            JPanel repPanel = new JPanel();
+            repPanel.setBackground(new Color(230, 240, 255)); // Light blue to indicate "Employee Mode"
+            repPanel.add(new JLabel("Acting for Customer (Enter Username):"));
+            targetUserField = new JTextField(12);
+            repPanel.add(targetUserField);
+            topPanel.add(repPanel);
+        }
+
         JPanel p1 = new JPanel();
         oneWayRadio = new JRadioButton("One-Way", true);
         roundTripRadio = new JRadioButton("Round-Trip");
@@ -62,7 +78,7 @@ public class FlightSearchFrame extends JFrame {
         resultsTable = new JTable(tableModel);
         add(new JScrollPane(resultsTable), BorderLayout.CENTER);
 
-        JButton bookBtn = new JButton("Book Selected Flight");
+        JButton bookBtn = new JButton(isRepresentative ? "Confirm Reservation for Customer" : "Book Selected Flight");
         add(bookBtn, BorderLayout.SOUTH);
 
         roundTripRadio.addActionListener(e -> returnDateField.setEnabled(true));
@@ -79,6 +95,23 @@ public class FlightSearchFrame extends JFrame {
             if (row == -1) {
                 JOptionPane.showMessageDialog(this, "Please select a flight leg first.");
                 return;
+            }
+
+            // Logic to determine which user ID to use
+            int cId;
+            if (isRepresentative) {
+                String targetUser = targetUserField.getText().trim();
+                if (targetUser.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Please enter a Customer Username to book on their behalf.");
+                    return;
+                }
+                cId = DatabaseHelper.getCustomerId(targetUser);
+                if (cId == -1) {
+                    JOptionPane.showMessageDialog(this, "Invalid Customer Username. Please ensure the user exists.");
+                    return;
+                }
+            } else {
+                cId = DatabaseHelper.getCustomerId(currentUsername);
             }
 
             if (roundTripRadio.isSelected() && !isSelectingReturn) {
@@ -122,10 +155,7 @@ public class FlightSearchFrame extends JFrame {
             dialog.setVisible(true);
 
             if (dialog.isConfirmed()) {
-                int cId = DatabaseHelper.getCustomerId(currentUsername);
                 String selectedClass = dialog.getSelectedClass();
-
-                // --- RE-INSTALLED: Waitlist Gatekeeper Logic ---
                 int available = DatabaseHelper.getSeatsRemaining(finalFlightList, selectedClass);
 
                 if (available > 0) {
@@ -136,25 +166,24 @@ public class FlightSearchFrame extends JFrame {
                     );
                     
                     if (success) {
-                        JOptionPane.showMessageDialog(this, "Trip Successfully Booked!");
+                        JOptionPane.showMessageDialog(this, "Reservation Successful!");
                         isSelectingReturn = false;
                         outboundLegData = null;
                         performSearch(); 
                     }
                 } else {
-                    // Logic for when the specific class is full
                     if (DatabaseHelper.isAlreadyOnWaitingList(cId, finalFlightList)) {
-                        JOptionPane.showMessageDialog(this, "You are already on the waiting list for this trip.");
+                        JOptionPane.showMessageDialog(this, "The customer is already on the waiting list for this trip.");
                     } else {
                         int join = JOptionPane.showConfirmDialog(this, 
                             "This flight is currently full in " + selectedClass + ".\n" +
-                            "Would you like to join the Waiting List?", 
+                            "Add customer to the Waiting List?", 
                             "Flight Full", JOptionPane.YES_NO_OPTION);
                         
                         if (join == JOptionPane.YES_OPTION) {
                             DatabaseHelper.addToWaitingList(cId, finalFlightList, aId, selectedClass);
                             int pos = DatabaseHelper.getWaitlistPosition(cId, finalFlightList);
-                            JOptionPane.showMessageDialog(this, "Added to Waitlist! Your current position is: " + pos);
+                            JOptionPane.showMessageDialog(this, "Customer added to Waitlist at position: " + pos);
                             
                             isSelectingReturn = false;
                             outboundLegData = null;

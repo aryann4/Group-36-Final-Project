@@ -417,4 +417,191 @@ public class DatabaseHelper {
             stmt.executeUpdate();
         } catch (SQLException e) { e.printStackTrace(); }
     }
+
+
+    // --- EMPLOYEE & ROLE MANAGEMENT METHODS ---
+
+    /**
+     * Validates employee credentials against the Employee table. 
+     */
+    public static boolean validateEmployeeLogin(String username, String password) {
+        String query = "SELECT * FROM Employee WHERE username = ? AND password = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, username);
+            stmt.setString(2, password);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the specific role (Admin or Customer Representative) for an employee. 
+     */
+    public static String getEmployeeRole(String username) {
+        String query = "SELECT role FROM Employee WHERE username = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) return rs.getString("role");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+        
+
+        // --- STEP 2: REPRESENTATIVE SUPPORT MANAGEMENT METHODS ---
+
+    /**
+     * Retrieves all questions from the QA_Entry table that currently have no answer.
+     */
+    public static ResultSet getPendingQuestions() throws SQLException {
+        String query = "SELECT q.qa_id, COALESCE(c.username, 'System') as author, q.question_text " +
+                       "FROM QA_Entry q LEFT JOIN Customer c ON q.customer_id = c.customer_id " +
+                       "WHERE q.answer_text IS NULL ORDER BY q.created_at ASC";
+        Connection conn = getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query);
+        return stmt.executeQuery();
+    }
+
+    /**
+     * Updates a specific Q&A entry with an answer provided by a representative.
+     */
+    public static boolean answerQuestion(int qaId, String answerText) {
+        String sql = "UPDATE QA_Entry SET answer_text = ? WHERE qa_id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, answerText);
+            stmt.setInt(2, qaId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the list of passengers currently on the waiting list for a specific flight.
+     * Requirement: [cite: 58, 111]
+     */
+    public static ResultSet getFlightWaitlist(String flightNum) throws SQLException {
+        String query = "SELECT c.first_name, c.last_name, w.class, w.added_date " +
+                       "FROM Waiting_List w JOIN Customer c ON w.customer_id = c.customer_id " +
+                       "WHERE w.flight_number = ? ORDER BY w.added_date ASC";
+        Connection conn = getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query);
+        stmt.setString(1, flightNum);
+        return stmt.executeQuery();
+    }
+
+
+    /**
+     * Requirement: Produce a list of all flights for a given airport (departing and arriving).
+     * Updated to include both Departure and Arrival dates/times.
+     */
+    public static ResultSet getAirportTraffic(String airportCode) throws SQLException {
+        String query = "SELECT flight_number, airline_id, departure_airport, arrival_airport, " + 
+                       "flight_date, arrival_date, departure_time, arrival_time " +
+                       "FROM Flight WHERE departure_airport = ? OR arrival_airport = ? " +
+                       "ORDER BY flight_date ASC, departure_time ASC";
+        Connection conn = getConnection();
+        PreparedStatement stmt = conn.prepareStatement(query);
+        stmt.setString(1, airportCode);
+        stmt.setString(2, airportCode);
+        return stmt.executeQuery();
+    }
+
+
+
+
+
+    // --- STEP 4: INFRASTRUCTURE MANAGEMENT (CRUD) METHODS ---
+
+    // 1. AIRCRAFT MANAGEMENT
+    public static ResultSet getAllAircraft() throws SQLException {
+        String query = "SELECT * FROM Aircraft ORDER BY aircraft_id";
+        Connection conn = getConnection();
+        return conn.createStatement().executeQuery(query);
+    }
+
+    public static boolean addAircraft(int id, String model, String man, int total, int econ, int bus, int first, String airId) {
+        String sql = "INSERT INTO Aircraft (aircraft_id, model, manufacturer, total_seats, econ_capacity, bus_capacity, first_capacity, airline_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id); stmt.setString(2, model); stmt.setString(3, man);
+            stmt.setInt(4, total); stmt.setInt(5, econ); stmt.setInt(6, bus);
+            stmt.setInt(7, first); stmt.setString(8, airId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    public static boolean updateAircraft(int id, String model, String man, int total, int econ, int bus, int first, String airId) {
+        String sql = "UPDATE Aircraft SET model=?, manufacturer=?, total_seats=?, econ_capacity=?, bus_capacity=?, first_capacity=?, airline_id=? WHERE aircraft_id=?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, model); stmt.setString(2, man); stmt.setInt(3, total);
+            stmt.setInt(4, econ); stmt.setInt(5, bus); stmt.setInt(6, first);
+            stmt.setString(7, airId); stmt.setInt(8, id);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    public static boolean deleteAircraft(int id) {
+        String sql = "DELETE FROM Aircraft WHERE aircraft_id = ?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id); return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    // 2. AIRPORT MANAGEMENT
+    public static ResultSet getAllAirports() throws SQLException {
+        String query = "SELECT * FROM Airport ORDER BY airport_code";
+        Connection conn = getConnection();
+        return conn.createStatement().executeQuery(query);
+    }
+
+    public static boolean addAirport(String code, String name, String city, String country) {
+        String sql = "INSERT INTO Airport (airport_code, name, city, country) VALUES (?, ?, ?, ?)";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, code); stmt.setString(2, name);
+            stmt.setString(3, city); stmt.setString(4, country);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    public static boolean deleteAirport(String code) {
+        String sql = "DELETE FROM Airport WHERE airport_code = ?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, code); return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    // 3. FLIGHT MANAGEMENT
+    public static ResultSet getAllFlightsRaw() throws SQLException {
+        String query = "SELECT * FROM Flight ORDER BY flight_date DESC, departure_time ASC";
+        Connection conn = getConnection();
+        return conn.createStatement().executeQuery(query);
+    }
+
+    public static boolean addFlight(String fNum, String aId, int acId, String dep, String arr, String fDate, String aDate, String dTime, String aTime, String type, float price) {
+        String sql = "INSERT INTO Flight (flight_number, airline_id, aircraft_id, departure_airport, arrival_airport, flight_date, arrival_date, departure_time, arrival_time, flight_type, base_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, fNum); stmt.setString(2, aId); stmt.setInt(3, acId);
+            stmt.setString(4, dep); stmt.setString(5, arr); stmt.setDate(6, Date.valueOf(fDate));
+            stmt.setDate(7, Date.valueOf(aDate)); stmt.setTime(8, Time.valueOf(dTime));
+            stmt.setTime(9, Time.valueOf(aTime)); stmt.setString(10, type); stmt.setFloat(11, price);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    public static boolean deleteFlight(String fNum, String aId) {
+        String sql = "DELETE FROM Flight WHERE flight_number = ? AND airline_id = ?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, fNum); stmt.setString(2, aId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
 }
