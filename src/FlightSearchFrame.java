@@ -7,34 +7,43 @@ import java.sql.*;
 
 public class FlightSearchFrame extends JFrame {
     private JTextField fromField, toField, dateField, returnDateField, maxPriceField;
-    private JTextField targetUserField; // New: Field for CR to input customer username
+    private JTextField targetUserField, editCustUserField; 
     private JCheckBox flexCheck;
     private JRadioButton oneWayRadio, roundTripRadio;
     private JComboBox<String> sortBox, airlineFilter;
-    private JTable resultsTable;
-    private DefaultTableModel tableModel;
+    private JTable resultsTable, editTicketsTable;
+    private DefaultTableModel tableModel, editTableModel;
     private String currentUsername;
-    private boolean isRepresentative; // New: Flag to track mode
+    private boolean isRepresentative;
 
     private boolean isSelectingReturn = false;
     private Object[] outboundLegData = null;
 
-    // UPDATED: Constructor now accepts isRepresentative flag
     public FlightSearchFrame(String username, boolean isRepresentative) {
         this.currentUsername = username;
         this.isRepresentative = isRepresentative;
         setTitle(isRepresentative ? "Acting for Users - Search & Book" : "Search & Book Flights");
-        setSize(1100, 700); // Increased height to fit the rep panel
+        setSize(1100, 750);
         setLayout(new BorderLayout());
         setLocationRelativeTo(null);
 
-        // Adjust grid rows if in Rep mode
+        if (isRepresentative) {
+            JTabbedPane mainTabs = new JTabbedPane();
+            mainTabs.addTab("New Reservation", createSearchPanel());
+            mainTabs.addTab("Edit Existing Reservation", createEditPanel());
+            add(mainTabs, BorderLayout.CENTER);
+        } else {
+            add(createSearchPanel(), BorderLayout.CENTER);
+        }
+    }
+
+    private JPanel createSearchPanel() {
+        JPanel mainPanel = new JPanel(new BorderLayout());
         JPanel topPanel = new JPanel(new GridLayout(isRepresentative ? 4 : 3, 1));
 
-        // --- NEW: REPRESENTATIVE PROXY PANEL ---
         if (isRepresentative) {
             JPanel repPanel = new JPanel();
-            repPanel.setBackground(new Color(230, 240, 255)); // Light blue to indicate "Employee Mode"
+            repPanel.setBackground(new Color(230, 240, 255));
             repPanel.add(new JLabel("Acting for Customer (Enter Username):"));
             targetUserField = new JTextField(12);
             repPanel.add(targetUserField);
@@ -71,128 +80,204 @@ public class FlightSearchFrame extends JFrame {
         p3.add(sortBox);
         JButton searchBtn = new JButton("Search Flights"); p3.add(searchBtn);
         topPanel.add(p3);
-        add(topPanel, BorderLayout.NORTH);
+        mainPanel.add(topPanel, BorderLayout.NORTH);
 
         String[] columns = {"Flight(s) #", "Airline ID", "Airline", "From", "To", "Dep. Date", "Arr. Date", "Departs", "Arrives", "Stops", "Price"};
         tableModel = new DefaultTableModel(columns, 0);
         resultsTable = new JTable(tableModel);
-        add(new JScrollPane(resultsTable), BorderLayout.CENTER);
+        mainPanel.add(new JScrollPane(resultsTable), BorderLayout.CENTER);
 
         JButton bookBtn = new JButton(isRepresentative ? "Confirm Reservation for Customer" : "Book Selected Flight");
-        add(bookBtn, BorderLayout.SOUTH);
+        mainPanel.add(bookBtn, BorderLayout.SOUTH);
 
+        // --- Listeners ---
         roundTripRadio.addActionListener(e -> returnDateField.setEnabled(true));
         oneWayRadio.addActionListener(e -> {
             returnDateField.setEnabled(false);
             isSelectingReturn = false; 
             outboundLegData = null;
         });
-
         searchBtn.addActionListener(e -> performSearch());
+        bookBtn.addActionListener(e -> handleBooking());
 
-        bookBtn.addActionListener(e -> {
-            int row = resultsTable.getSelectedRow();
+        return mainPanel;
+    }
+
+    private JPanel createEditPanel() {
+        JPanel editPanel = new JPanel(new BorderLayout());
+        JPanel top = new JPanel();
+        top.add(new JLabel("Customer Username:"));
+        editCustUserField = new JTextField(12);
+        top.add(editCustUserField);
+        JButton loadBtn = new JButton("View Customer Tickets");
+        top.add(loadBtn);
+        editPanel.add(top, BorderLayout.NORTH);
+
+        String[] cols = {"Ticket #", "Flight", "Airline", "Class", "Current Total", "Seat"};
+        editTableModel = new DefaultTableModel(cols, 0);
+        editTicketsTable = new JTable(editTableModel);
+        editPanel.add(new JScrollPane(editTicketsTable), BorderLayout.CENTER);
+
+        JButton updateBtn = new JButton("Update Selected Reservation");
+        editPanel.add(updateBtn, BorderLayout.SOUTH);
+
+        // Fetch user tickets
+        loadBtn.addActionListener(e -> refreshEditTable());
+
+        // Update logic for class and seat changes [cite: 37, 56]
+        updateBtn.addActionListener(e -> {
+            int row = editTicketsTable.getSelectedRow();
             if (row == -1) {
-                JOptionPane.showMessageDialog(this, "Please select a flight leg first.");
+                JOptionPane.showMessageDialog(this, "Select a reservation to edit.");
                 return;
             }
 
-            // Logic to determine which user ID to use
-            int cId;
-            if (isRepresentative) {
-                String targetUser = targetUserField.getText().trim();
-                if (targetUser.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Please enter a Customer Username to book on their behalf.");
-                    return;
-                }
-                cId = DatabaseHelper.getCustomerId(targetUser);
-                if (cId == -1) {
-                    JOptionPane.showMessageDialog(this, "Invalid Customer Username. Please ensure the user exists.");
-                    return;
-                }
+            int tNum = (int) editTableModel.getValueAt(row, 0);
+            String oldClass = (String) editTableModel.getValueAt(row, 3);
+            float oldPrice = (float) editTableModel.getValueAt(row, 4);
+
+            String[] classes = {"economy", "business", "first"};
+            String newClass = (String) JOptionPane.showInputDialog(this, "Select New Class:", "Edit Reservation", 
+                                JOptionPane.QUESTION_MESSAGE, null, classes, oldClass);
+            if (newClass == null) return;
+
+            String newSeat = JOptionPane.showInputDialog("New Seat Number:", editTableModel.getValueAt(row, 5));
+            if (newSeat == null) return;
+            
+            float newPrice = oldPrice;
+            // Requirement: Economy tickets incur a fee for changes [cite: 37]
+            if (oldClass.equalsIgnoreCase("economy") && !newClass.equalsIgnoreCase("economy")) {
+                newPrice += 50.0f; 
+                JOptionPane.showMessageDialog(this, "Upgrade from Economy detected. A $50 change fee has been applied.");
+            }
+
+            if (DatabaseHelper.updateTicketDetails(tNum, newClass, newSeat, newPrice)) {
+                JOptionPane.showMessageDialog(this, "Reservation updated successfully!");
+                refreshEditTable();
             } else {
-                cId = DatabaseHelper.getCustomerId(currentUsername);
-            }
-
-            if (roundTripRadio.isSelected() && !isSelectingReturn) {
-                int confirm = JOptionPane.showConfirmDialog(this, 
-                    "Outbound flight selected! Search for your return flight now?", 
-                    "Outbound Confirmed", JOptionPane.YES_NO_OPTION);
-                
-                if (confirm == JOptionPane.YES_OPTION) {
-                    outboundLegData = new Object[tableModel.getColumnCount()];
-                    for (int i = 0; i < tableModel.getColumnCount(); i++) {
-                        outboundLegData[i] = tableModel.getValueAt(row, i);
-                    }
-                    isSelectingReturn = true;
-                    fromField.setText((String) outboundLegData[4]); 
-                    toField.setText((String) outboundLegData[3]);   
-                    airlineFilter.setSelectedItem((String) outboundLegData[1]);
-                    performSearch(); 
-                    return;
-                }
-            }
-
-            String fNum = (String) tableModel.getValueAt(row, 0);
-            String aId = (String) tableModel.getValueAt(row, 1);
-            float currentPrice = Float.parseFloat(((String) tableModel.getValueAt(row, 10)).replace("$", ""));
-
-            String finalFlightList = fNum;
-            float finalBasePrice = currentPrice;
-            String routeDesc = tableModel.getValueAt(row, 3) + " -> " + tableModel.getValueAt(row, 4);
-
-            if (roundTripRadio.isSelected() && outboundLegData != null) {
-                finalFlightList = outboundLegData[0] + "," + fNum;
-                float outboundPrice = Float.parseFloat(((String) outboundLegData[10]).replace("$", ""));
-                finalBasePrice = outboundPrice + currentPrice;
-                routeDesc = outboundLegData[3] + " <-> " + outboundLegData[4] + " (Round Trip)";
-            }
-
-            String depInfo = tableModel.getValueAt(row, 5) + " @ " + tableModel.getValueAt(row, 7);
-            String arrInfo = tableModel.getValueAt(row, 6) + " @ " + tableModel.getValueAt(row, 8);
-
-            BookingOptionsDialog dialog = new BookingOptionsDialog(this, finalFlightList, routeDesc, depInfo, arrInfo, finalBasePrice);
-            dialog.setVisible(true);
-
-            if (dialog.isConfirmed()) {
-                String selectedClass = dialog.getSelectedClass();
-                int available = DatabaseHelper.getSeatsRemaining(finalFlightList, selectedClass);
-
-                if (available > 0) {
-                    boolean success = DatabaseHelper.bookFlight(
-                        cId, finalFlightList, aId, selectedClass, 
-                        dialog.isFlexible(), dialog.getTotalFare(), 
-                        dialog.hasSpecialMeal(), dialog.getQuantity()
-                    );
-                    
-                    if (success) {
-                        JOptionPane.showMessageDialog(this, "Reservation Successful!");
-                        isSelectingReturn = false;
-                        outboundLegData = null;
-                        performSearch(); 
-                    }
-                } else {
-                    if (DatabaseHelper.isAlreadyOnWaitingList(cId, finalFlightList)) {
-                        JOptionPane.showMessageDialog(this, "The customer is already on the waiting list for this trip.");
-                    } else {
-                        int join = JOptionPane.showConfirmDialog(this, 
-                            "This flight is currently full in " + selectedClass + ".\n" +
-                            "Add customer to the Waiting List?", 
-                            "Flight Full", JOptionPane.YES_NO_OPTION);
-                        
-                        if (join == JOptionPane.YES_OPTION) {
-                            DatabaseHelper.addToWaitingList(cId, finalFlightList, aId, selectedClass);
-                            int pos = DatabaseHelper.getWaitlistPosition(cId, finalFlightList);
-                            JOptionPane.showMessageDialog(this, "Customer added to Waitlist at position: " + pos);
-                            
-                            isSelectingReturn = false;
-                            outboundLegData = null;
-                            performSearch();
-                        }
-                    }
-                }
+                JOptionPane.showMessageDialog(this, "Failed to update database.");
             }
         });
+
+        return editPanel;
+    }
+
+    private void refreshEditTable() {
+        editTableModel.setRowCount(0);
+        String user = editCustUserField.getText().trim();
+        if (user.isEmpty()) return;
+        try (ResultSet rs = DatabaseHelper.getCustomerTickets(user)) {
+            while (rs.next()) {
+                editTableModel.addRow(new Object[]{
+                    rs.getInt("ticket_number"), rs.getString("flight_number"), 
+                    rs.getString("airline_id"), rs.getString("class"), 
+                    rs.getFloat("total_fare"), rs.getString("seat_number")
+                });
+            }
+        } catch (SQLException ex) { ex.printStackTrace(); }
+    }
+
+    private void handleBooking() {
+        int row = resultsTable.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a flight leg first.");
+            return;
+        }
+
+        int cId;
+        if (isRepresentative) {
+            String targetUser = targetUserField.getText().trim();
+            if (targetUser.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please enter a Customer Username to book on their behalf.");
+                return;
+            }
+            cId = DatabaseHelper.getCustomerId(targetUser);
+            if (cId == -1) {
+                JOptionPane.showMessageDialog(this, "Invalid Customer Username. Please ensure the user exists.");
+                return;
+            }
+        } else {
+            cId = DatabaseHelper.getCustomerId(currentUsername);
+        }
+
+        if (roundTripRadio.isSelected() && !isSelectingReturn) {
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                "Outbound flight selected! Search for your return flight now?", 
+                "Outbound Confirmed", JOptionPane.YES_NO_OPTION);
+            
+            if (confirm == JOptionPane.YES_OPTION) {
+                outboundLegData = new Object[tableModel.getColumnCount()];
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    outboundLegData[i] = tableModel.getValueAt(row, i);
+                }
+                isSelectingReturn = true;
+                fromField.setText((String) outboundLegData[4]); 
+                toField.setText((String) outboundLegData[3]);   
+                airlineFilter.setSelectedItem((String) outboundLegData[1]);
+                performSearch(); 
+                return;
+            }
+        }
+
+        String fNum = (String) tableModel.getValueAt(row, 0);
+        String aId = (String) tableModel.getValueAt(row, 1);
+        float currentPrice = Float.parseFloat(((String) tableModel.getValueAt(row, 10)).replace("$", ""));
+
+        String finalFlightList = fNum;
+        float finalBasePrice = currentPrice;
+        String routeDesc = tableModel.getValueAt(row, 3) + " -> " + tableModel.getValueAt(row, 4);
+
+        if (roundTripRadio.isSelected() && outboundLegData != null) {
+            finalFlightList = outboundLegData[0] + "," + fNum;
+            float outboundPrice = Float.parseFloat(((String) outboundLegData[10]).replace("$", ""));
+            finalBasePrice = outboundPrice + currentPrice;
+            routeDesc = outboundLegData[3] + " <-> " + outboundLegData[4] + " (Round Trip)";
+        }
+
+        String depInfo = tableModel.getValueAt(row, 5) + " @ " + tableModel.getValueAt(row, 7);
+        String arrInfo = tableModel.getValueAt(row, 6) + " @ " + tableModel.getValueAt(row, 8);
+
+        BookingOptionsDialog dialog = new BookingOptionsDialog(this, finalFlightList, routeDesc, depInfo, arrInfo, finalBasePrice);
+        dialog.setVisible(true);
+
+        if (dialog.isConfirmed()) {
+            String selectedClass = dialog.getSelectedClass();
+            int available = DatabaseHelper.getSeatsRemaining(finalFlightList, selectedClass);
+
+            if (available > 0) {
+                boolean success = DatabaseHelper.bookFlight(
+                    cId, finalFlightList, aId, selectedClass, 
+                    dialog.isFlexible(), dialog.getTotalFare(), 
+                    dialog.hasSpecialMeal(), dialog.getQuantity()
+                );
+                
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "Reservation Successful!");
+                    isSelectingReturn = false;
+                    outboundLegData = null;
+                    performSearch(); 
+                }
+            } else {
+                if (DatabaseHelper.isAlreadyOnWaitingList(cId, finalFlightList)) {
+                    JOptionPane.showMessageDialog(this, "The customer is already on the waiting list for this trip.");
+                } else {
+                    int join = JOptionPane.showConfirmDialog(this, 
+                        "This flight is currently full in " + selectedClass + ".\n" +
+                        "Add customer to the Waiting List?", 
+                        "Flight Full", JOptionPane.YES_NO_OPTION);
+                    
+                    if (join == JOptionPane.YES_OPTION) {
+                        DatabaseHelper.addToWaitingList(cId, finalFlightList, aId, selectedClass);
+                        int pos = DatabaseHelper.getWaitlistPosition(cId, finalFlightList);
+                        JOptionPane.showMessageDialog(this, "Customer added to Waitlist at position: " + pos);
+                        
+                        isSelectingReturn = false;
+                        outboundLegData = null;
+                        performSearch();
+                    }
+                }
+            }
+        }
     }
 
     private void performSearch() {

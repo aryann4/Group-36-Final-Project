@@ -786,4 +786,56 @@ public class DatabaseHelper {
                        "GROUP BY flight_number ORDER BY sales DESC LIMIT 5";
         return getConnection().createStatement().executeQuery(query);
     }
+
+
+
+
+
+
+    // --- STEP 7: REPRESENTATIVE RESERVATION EDITING ---
+
+    /**
+     * Retrieves all active ticket segments for a specific customer.
+     */
+    public static ResultSet getCustomerTickets(String username) throws SQLException {
+        String query = "SELECT t.ticket_number, ts.flight_number, ts.airline_id, ts.class, t.total_fare, ts.seat_number " +
+                       "FROM Ticket t JOIN Ticket_Segment ts ON t.ticket_number = ts.ticket_number " +
+                       "JOIN Customer c ON t.customer_id = c.customer_id " +
+                       "WHERE c.username = ? AND t.status = 'active'";
+        PreparedStatement stmt = getConnection().prepareStatement(query);
+        stmt.setString(1, username);
+        return stmt.executeQuery();
+    }
+
+    /**
+     * Updates ticket details and price.
+     * Note: Total fare is updated to reflect class changes or fees[cite: 37, 39].
+     */
+    public static boolean updateTicketDetails(int ticketNum, String newClass, String newSeat, float newTotal) {
+        String sqlSegment = "UPDATE Ticket_Segment SET class = ?, seat_number = ? WHERE ticket_number = ?";
+        String sqlTicket = "UPDATE Ticket SET total_fare = ? WHERE ticket_number = ?";
+        
+        try (Connection conn = getConnection()) {
+            conn.setAutoCommit(false); // Use transaction for atomic update
+            try (PreparedStatement s1 = conn.prepareStatement(sqlSegment);
+                 PreparedStatement s2 = conn.prepareStatement(sqlTicket)) {
+                
+                s1.setString(1, newClass);
+                s1.setString(2, newSeat);
+                s1.setInt(3, ticketNum);
+                s1.executeUpdate();
+
+                s2.setFloat(1, newTotal);
+                s2.setInt(2, ticketNum);
+                s2.executeUpdate();
+
+                conn.commit();
+                return true;
+            } catch (SQLException ex) {
+                conn.rollback();
+                ex.printStackTrace();
+                return false;
+            }
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
 }
