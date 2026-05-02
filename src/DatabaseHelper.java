@@ -604,4 +604,186 @@ public class DatabaseHelper {
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
+
+
+
+
+    // --- STEP 5: ADMIN USER MANAGEMENT (CRUD) METHODS ---
+
+    /**
+     * Retrieves all customers for the Admin management table. 
+     */
+    public static ResultSet getAllCustomers() throws SQLException {
+        String query = "SELECT * FROM Customer ORDER BY last_name, first_name";
+        Connection conn = getConnection();
+        return conn.createStatement().executeQuery(query);
+    }
+
+    /**
+     * Updates existing customer information. 
+     */
+    public static boolean updateCustomer(int id, String fName, String lName, String email, String phone, String addr, String user, String pass) {
+        String sql = "UPDATE Customer SET first_name=?, last_name=?, email=?, phone=?, address=?, username=?, password=? WHERE customer_id=?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, fName); stmt.setString(2, lName); stmt.setString(3, email);
+            stmt.setString(4, phone); stmt.setString(5, addr); stmt.setString(6, user);
+            stmt.setString(7, pass); stmt.setInt(8, id);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    /**
+     * Deletes a customer account. 
+     */
+    public static boolean deleteCustomer(int id) {
+        String sql = "DELETE FROM Customer WHERE customer_id = ?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    /**
+     * Retrieves all employees for the Admin management table. 
+     */
+    public static ResultSet getAllEmployees() throws SQLException {
+        String query = "SELECT * FROM Employee ORDER BY role, last_name";
+        Connection conn = getConnection();
+        return conn.createStatement().executeQuery(query);
+    }
+
+    /**
+     * Adds a new employee (Admin or Representative). 
+     */
+    public static boolean addEmployee(int id, String fName, String lName, String email, String phone, String user, String pass, String role) {
+        String sql = "INSERT INTO Employee (employee_id, first_name, last_name, email, phone, username, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id); stmt.setString(2, fName); stmt.setString(3, lName);
+            stmt.setString(4, email); stmt.setString(5, phone); stmt.setString(6, user);
+            stmt.setString(7, pass); stmt.setString(8, role);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    /**
+     * Updates existing employee information.
+     * Fixed: Parameter indexing corrected to match the 8 SQL placeholders.
+     */
+    public static boolean updateEmployee(int id, String fName, String lName, String email, String phone, String user, String pass, String role) {
+        String sql = "UPDATE Employee SET first_name=?, last_name=?, email=?, phone=?, username=?, password=?, role=? WHERE employee_id=?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, fName); 
+            stmt.setString(2, lName); 
+            stmt.setString(3, email);
+            stmt.setString(4, phone); 
+            stmt.setString(5, user); 
+            stmt.setString(6, pass); 
+            stmt.setString(7, role); 
+            stmt.setInt(8, id);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    /**
+     * Deletes an employee account. 
+     */
+    public static boolean deleteEmployee(int id) {
+        String sql = "DELETE FROM Employee WHERE employee_id = ?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+
+
+
+
+
+    // --- STEP 6: ADMIN REPORTS & ANALYTICS ---
+
+    /**
+     * Retrieves all tickets sold in a specific month and year.
+     */
+    public static ResultSet getMonthlySales(int month, int year) throws SQLException {
+        String query = "SELECT ticket_number, customer_id, total_fare, purchase_datetime FROM Ticket " +
+                       "WHERE MONTH(purchase_datetime) = ? AND YEAR(purchase_datetime) = ?";
+        PreparedStatement stmt = getConnection().prepareStatement(query);
+        stmt.setInt(1, month);
+        stmt.setInt(2, year);
+        return stmt.executeQuery();
+    }
+
+    /**
+     * Lists all reservations for a specific flight number.
+     */
+    public static ResultSet getReservationsByFlight(String flightNum) throws SQLException {
+        String query = "SELECT t.ticket_number, c.first_name, c.last_name, ts.class FROM Ticket t " +
+                       "JOIN Customer c ON t.customer_id = c.customer_id " +
+                       "JOIN Ticket_Segment ts ON t.ticket_number = ts.ticket_number " +
+                       "WHERE ts.flight_number = ?";
+        PreparedStatement stmt = getConnection().prepareStatement(query);
+        stmt.setString(1, flightNum);
+        return stmt.executeQuery();
+    }
+
+    /**
+     * Searches for reservations by customer name (supports partial matches).
+     */
+    public static ResultSet getReservationsByCustomer(String firstName, String lastName) throws SQLException {
+        String query = "SELECT t.ticket_number, ts.flight_number, ts.airline_id, t.total_fare FROM Ticket t " +
+                       "JOIN Customer c ON t.customer_id = c.customer_id " +
+                       "JOIN Ticket_Segment ts ON t.ticket_number = ts.ticket_number " +
+                       "WHERE c.first_name LIKE ? AND c.last_name LIKE ?";
+        PreparedStatement stmt = getConnection().prepareStatement(query);
+        stmt.setString(1, "%" + firstName + "%");
+        stmt.setString(2, "%" + lastName + "%");
+        return stmt.executeQuery();
+    }
+
+    /**
+     * Calculates total revenue grouped by flight number.
+     */
+    public static ResultSet getRevenueByFlight() throws SQLException {
+        String query = "SELECT flight_number, SUM(total_fare) as revenue FROM Ticket t " +
+                       "JOIN Ticket_Segment ts ON t.ticket_number = ts.ticket_number GROUP BY flight_number";
+        return getConnection().createStatement().executeQuery(query);
+    }
+
+    /**
+     * Calculates total revenue grouped by airline.
+     */
+    public static ResultSet getRevenueByAirline() throws SQLException {
+        String query = "SELECT airline_id, SUM(total_fare) as revenue FROM Ticket t " +
+                       "JOIN Ticket_Segment ts ON t.ticket_number = ts.ticket_number GROUP BY airline_id";
+        return getConnection().createStatement().executeQuery(query);
+    }
+
+    /**
+     * Calculates total revenue generated by each customer.
+     */
+    public static ResultSet getRevenueByCustomer() throws SQLException {
+        String query = "SELECT c.first_name, c.last_name, SUM(t.total_fare) as revenue FROM Ticket t " +
+                       "JOIN Customer c ON t.customer_id = c.customer_id GROUP BY c.customer_id";
+        return getConnection().createStatement().executeQuery(query);
+    }
+
+    /**
+     * Finds the single customer who has spent the most money.
+     */
+    public static ResultSet getTopCustomer() throws SQLException {
+        String query = "SELECT c.first_name, c.last_name, SUM(t.total_fare) as revenue FROM Ticket t " +
+                       "JOIN Customer c ON t.customer_id = c.customer_id GROUP BY c.customer_id " +
+                       "ORDER BY revenue DESC LIMIT 1";
+        return getConnection().createStatement().executeQuery(query);
+    }
+
+    /**
+     * Ranks the top 5 flights by ticket sales volume.
+     */
+    public static ResultSet getTopFlights() throws SQLException {
+        String query = "SELECT flight_number, COUNT(*) as sales FROM Ticket_Segment " +
+                       "GROUP BY flight_number ORDER BY sales DESC LIMIT 5";
+        return getConnection().createStatement().executeQuery(query);
+    }
 }

@@ -67,8 +67,7 @@ public class LoginFrame extends JFrame {
                     
                     if ("admin".equalsIgnoreCase(role)) {
                         // This will open the Admin Dashboard once created
-                        // new AdminDashboard(user).setVisible(true);
-                        JOptionPane.showMessageDialog(null, "Redirecting to Admin Dashboard...");
+                        new AdminDashboard(user).setVisible(true);
                     } else if ("representative".equalsIgnoreCase(role)) {
                         // ACTIVATED: Launches the Representative Dashboard instead of just a popup
                         new RepresentativeDashboard(user).setVisible(true);
