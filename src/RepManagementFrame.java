@@ -150,7 +150,7 @@ public class RepManagementFrame extends JFrame {
             int row = airportTable.getSelectedRow();
             if (row == -1) { JOptionPane.showMessageDialog(this, "Select an airport to edit."); return; }
             try {
-                String code    = (String) apModel.getValueAt(row, 0); // PK — cannot change
+                String code    = (String) apModel.getValueAt(row, 0); 
                 String newName = JOptionPane.showInputDialog("Update Name:", apModel.getValueAt(row, 1));
                 if (newName == null) return;
                 String newCity    = JOptionPane.showInputDialog("Update City:", apModel.getValueAt(row, 2));
@@ -195,8 +195,8 @@ public class RepManagementFrame extends JFrame {
             int row = flightTable.getSelectedRow();
             if (row == -1) { JOptionPane.showMessageDialog(this, "Select a flight to edit."); return; }
             try {
-                String fNum  = (String) fModel.getValueAt(row, 0); // PK — cannot change
-                String aId   = (String) fModel.getValueAt(row, 1); // PK — cannot change
+                String fNum  = (String) fModel.getValueAt(row, 0);
+                String aId   = (String) fModel.getValueAt(row, 1);
                 int    acId  = Integer.parseInt(JOptionPane.showInputDialog("Update Aircraft ID:", fModel.getValueAt(row, 2)));
                 String dep   = JOptionPane.showInputDialog("Update Dep Airport:", fModel.getValueAt(row, 3));
                 if (dep == null) return;
