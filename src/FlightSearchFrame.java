@@ -59,10 +59,10 @@ public class FlightSearchFrame extends JFrame {
 
         p1.add(new JLabel("From:")); fromField = new JTextField(4); p1.add(fromField);
         p1.add(new JLabel("To:")); toField = new JTextField(4); p1.add(toField);
-        p1.add(new JLabel("Dep. Date:")); dateField = new JTextField("2026-04-26", 8); p1.add(dateField);
+        p1.add(new JLabel("Dep. Date:")); dateField = new JTextField("2026-05-08", 8); p1.add(dateField);
         
         JLabel retLbl = new JLabel("Ret. Date:");
-        returnDateField = new JTextField("2026-04-30", 8);
+        returnDateField = new JTextField("2026-05-12", 8);
         returnDateField.setEnabled(false); 
         p1.add(retLbl); p1.add(returnDateField);
         
