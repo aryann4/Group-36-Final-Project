@@ -80,7 +80,7 @@ public class MyReservationsFrame extends JFrame {
             String displayStatus =          model.getValueAt(row, 10).toString().trim();
 
             if (displayStatus.equalsIgnoreCase("completed")) {
-                // Past flight — just remove from history view
+
                 if (JOptionPane.showConfirmDialog(this,
                         "Remove completed flight record #" + ticketNum + " from your history?",
                         "Clear History", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
@@ -88,14 +88,14 @@ public class MyReservationsFrame extends JFrame {
                 }
 
             } else if (ticketClass.equalsIgnoreCase("Economy")) {
-                // Economy tickets cannot be cancelled — hard block per project spec
+
                 JOptionPane.showMessageDialog(this,
                     "Economy tickets cannot be cancelled.\n\n" +
                     "Only Business and First class tickets are eligible for cancellation.",
                     "Cancellation Not Allowed", JOptionPane.WARNING_MESSAGE);
 
             } else {
-                // Business / First — free cancellation
+
                 if (JOptionPane.showConfirmDialog(this,
                         "Cancel Ticket #" + ticketNum + "?\n" +
                         ticketClass + " class tickets can be cancelled at no charge.",
