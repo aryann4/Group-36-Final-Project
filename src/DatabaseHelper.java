@@ -60,7 +60,7 @@ public class DatabaseHelper {
                 matchStmt.setString(2, seatClass);
                 matchStmt.setBoolean(3, isFlex);
                 matchStmt.setBoolean(4, meal);
-                matchStmt.setString(5, flightNums.replace(" ", "")); // Standardize comma separation
+                matchStmt.setString(5, flightNums.replace(" ", ""));
                 ResultSet rs = matchStmt.executeQuery();
                 if (rs.next()) finalTicketNum = rs.getInt("ticket_number");
             }
@@ -75,8 +75,7 @@ public class DatabaseHelper {
                 }
             } else {
                 finalTicketNum = (int)(Math.random() * 900000) + 100000;
-                // booking_fee is already factored into totalFare by BookingOptionsDialog
-                // ticket_type is passed in for reference but stored via totalFare logic
+
                 String insertTicketSQL = "INSERT INTO Ticket (ticket_number, customer_id, total_fare, purchase_datetime, status, is_flexible, quantity) VALUES (?, ?, ?, NOW(), 'active', ?, ?)";
                 try (PreparedStatement iStmt = conn.prepareStatement(insertTicketSQL)) {
                     iStmt.setInt(1, finalTicketNum);
@@ -275,7 +274,7 @@ public class DatabaseHelper {
                     int seatsOnThisLeg = rs.getInt("left_count");
                     if (seatsOnThisLeg < minSeats) minSeats = seatsOnThisLeg;
                 } else {
-                    return 0; // Flight not found
+                    return 0; 
                 }
             } catch (SQLException e) { e.printStackTrace(); }
         }
@@ -351,7 +350,6 @@ public class DatabaseHelper {
                 String aId = rs.getString("airline_id");
                 String sClass = rs.getString("class");
 
-                // Leverage your existing logic that checks multi-leg capacity
                 int remaining = getSeatsRemaining(fNum, sClass);
                 if (remaining > 0) {
                     if (availableFlights.length() > 0) availableFlights.append("\n");
@@ -661,10 +659,7 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-    /**
-     * Cancel an Economy ticket with a $50 fee.
-     * Sets status to 'cancelled_with_fee' for audit trail, then removes segments.
-     */
+
     public static boolean cancelBookingWithFee(int ticketNum, float fee) {
         String mark = "UPDATE Ticket SET status = 'cancelled_with_fee', " +
                       "total_fare = GREATEST(total_fare - ?, 0) WHERE ticket_number = ?";
@@ -687,7 +682,7 @@ public class DatabaseHelper {
         }
     }
 
-    /** Edit an existing airport's name, city, and country (airport_code PK cannot change). */
+
     public static boolean updateAirport(String code, String name, String city, String country) {
         String sql = "UPDATE Airport SET name=?, city=?, country=? WHERE airport_code=?";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -699,7 +694,7 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-    /** Edit an existing flight. The composite PK (flight_number, airline_id) cannot change. */
+
     public static boolean updateFlight(String fNum, String aId, int acId, String dep, String arr,
             String fDate, String aDate, String dTime, String aTime, String type, float price) {
         String sql = "UPDATE Flight SET aircraft_id=?, departure_airport=?, arrival_airport=?, " +
