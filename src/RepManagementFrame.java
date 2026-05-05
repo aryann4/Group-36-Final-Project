@@ -38,9 +38,10 @@ public class RepManagementFrame extends JFrame {
         apPanel.add(new JScrollPane(airportTable), BorderLayout.CENTER);
 
         JPanel apButtons = new JPanel();
-        JButton addApBtn = new JButton("Add Airport");
-        JButton delApBtn = new JButton("Delete Selected");
-        apButtons.add(addApBtn); apButtons.add(delApBtn);
+        JButton addApBtn  = new JButton("Add Airport");
+        JButton editApBtn = new JButton("Edit Selected");
+        JButton delApBtn  = new JButton("Delete Selected");
+        apButtons.add(addApBtn); apButtons.add(editApBtn); apButtons.add(delApBtn);
         apPanel.add(apButtons, BorderLayout.SOUTH);
         tabs.addTab("Airports", apPanel);
 
@@ -51,9 +52,10 @@ public class RepManagementFrame extends JFrame {
         fPanel.add(new JScrollPane(flightTable), BorderLayout.CENTER);
 
         JPanel fButtons = new JPanel();
-        JButton addFBtn = new JButton("Add Flight");
-        JButton delFBtn = new JButton("Delete Selected");
-        fButtons.add(addFBtn); fButtons.add(delFBtn);
+        JButton addFBtn  = new JButton("Add Flight");
+        JButton editFBtn = new JButton("Edit Selected");
+        JButton delFBtn  = new JButton("Delete Selected");
+        fButtons.add(addFBtn); fButtons.add(editFBtn); fButtons.add(delFBtn);
         fPanel.add(fButtons, BorderLayout.SOUTH);
         tabs.addTab("Flights", fPanel);
 
@@ -136,12 +138,30 @@ public class RepManagementFrame extends JFrame {
         });
 
         addApBtn.addActionListener(e -> {
-            String code = JOptionPane.showInputDialog("Airport Code (3 chars):");
+            String code    = JOptionPane.showInputDialog("Airport Code (3 chars):");
             if (code == null) return;
-            String name = JOptionPane.showInputDialog("Airport Name:");
-            String city = JOptionPane.showInputDialog("City:");
+            String name    = JOptionPane.showInputDialog("Airport Name:");
+            String city    = JOptionPane.showInputDialog("City:");
             String country = JOptionPane.showInputDialog("Country:");
             if (DatabaseHelper.addAirport(code, name, city, country)) refreshAirports();
+        });
+
+        editApBtn.addActionListener(e -> {
+            int row = airportTable.getSelectedRow();
+            if (row == -1) { JOptionPane.showMessageDialog(this, "Select an airport to edit."); return; }
+            try {
+                String code    = (String) apModel.getValueAt(row, 0); // PK — cannot change
+                String newName = JOptionPane.showInputDialog("Update Name:", apModel.getValueAt(row, 1));
+                if (newName == null) return;
+                String newCity    = JOptionPane.showInputDialog("Update City:", apModel.getValueAt(row, 2));
+                String newCountry = JOptionPane.showInputDialog("Update Country:", apModel.getValueAt(row, 3));
+                if (DatabaseHelper.updateAirport(code, newName, newCity, newCountry)) {
+                    JOptionPane.showMessageDialog(this, "Airport updated successfully!");
+                    refreshAirports();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Update failed.");
+                }
+            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage()); }
         });
 
         delApBtn.addActionListener(e -> {
@@ -155,21 +175,45 @@ public class RepManagementFrame extends JFrame {
             try {
                 String fNum = JOptionPane.showInputDialog("Flight Number:");
                 if (fNum == null) return;
-                String aId = JOptionPane.showInputDialog("Airline ID:");
-                int acId = Integer.parseInt(JOptionPane.showInputDialog("Aircraft ID:"));
-                String dep = JOptionPane.showInputDialog("Dep Airport:");
-                String arr = JOptionPane.showInputDialog("Arr Airport:");
+                String aId  = JOptionPane.showInputDialog("Airline ID:");
+                int    acId = Integer.parseInt(JOptionPane.showInputDialog("Aircraft ID:"));
+                String dep  = JOptionPane.showInputDialog("Dep Airport:");
+                String arr  = JOptionPane.showInputDialog("Arr Airport:");
                 String dDate = JOptionPane.showInputDialog("Dep Date (YYYY-MM-DD):");
                 String aDate = JOptionPane.showInputDialog("Arr Date (YYYY-MM-DD):");
                 String dTime = JOptionPane.showInputDialog("Dep Time (HH:MM:SS):");
                 String aTime = JOptionPane.showInputDialog("Arr Time (HH:MM:SS):");
-                String type = JOptionPane.showInputDialog("Type (domestic/international):");
-                float price = Float.parseFloat(JOptionPane.showInputDialog("Base Price:"));
-
+                String type  = JOptionPane.showInputDialog("Type (domestic/international):");
+                float price  = Float.parseFloat(JOptionPane.showInputDialog("Base Price:"));
                 if (DatabaseHelper.addFlight(fNum, aId, acId, dep, arr, dDate, aDate, dTime, aTime, type, price)) {
                     refreshFlights();
                 }
-            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error: Check your format (Dates: YYYY-MM-DD, Times: HH:MM:SS)."); }
+            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error: Check format (Dates: YYYY-MM-DD, Times: HH:MM:SS)."); }
+        });
+
+        editFBtn.addActionListener(e -> {
+            int row = flightTable.getSelectedRow();
+            if (row == -1) { JOptionPane.showMessageDialog(this, "Select a flight to edit."); return; }
+            try {
+                String fNum  = (String) fModel.getValueAt(row, 0); // PK — cannot change
+                String aId   = (String) fModel.getValueAt(row, 1); // PK — cannot change
+                int    acId  = Integer.parseInt(JOptionPane.showInputDialog("Update Aircraft ID:", fModel.getValueAt(row, 2)));
+                String dep   = JOptionPane.showInputDialog("Update Dep Airport:", fModel.getValueAt(row, 3));
+                if (dep == null) return;
+                String arr   = JOptionPane.showInputDialog("Update Arr Airport:", fModel.getValueAt(row, 4));
+                String dDate = JOptionPane.showInputDialog("Update Dep Date (YYYY-MM-DD):", fModel.getValueAt(row, 5));
+                String aDate = JOptionPane.showInputDialog("Update Arr Date (YYYY-MM-DD):", fModel.getValueAt(row, 6));
+                String dTime = JOptionPane.showInputDialog("Update Dep Time (HH:MM:SS):", fModel.getValueAt(row, 7));
+                String aTime = JOptionPane.showInputDialog("Update Arr Time (HH:MM:SS):", fModel.getValueAt(row, 8));
+                String type  = JOptionPane.showInputDialog("Update Type (domestic/international):", fModel.getValueAt(row, 9));
+                float price  = Float.parseFloat(JOptionPane.showInputDialog("Update Base Price:", fModel.getValueAt(row, 10)));
+                if (DatabaseHelper.updateFlight(fNum, aId, acId, dep, arr, dDate, aDate, dTime, aTime, type, price)) {
+                    JOptionPane.showMessageDialog(this, "Flight updated successfully!");
+                    refreshFlights();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Update failed. Check date/time format.");
+                }
+            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage()); }
         });
 
         delFBtn.addActionListener(e -> {
