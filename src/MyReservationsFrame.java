@@ -73,28 +73,35 @@ public class MyReservationsFrame extends JFrame {
 
         cancelBtn.addActionListener(e -> {
             int row = table.getSelectedRow();
-            if (row != -1) {
-                int ticketNum = (int) model.getValueAt(row, 0);
-                String ticketClass = (String) model.getValueAt(row, 6).toString().trim();
-                String displayStatus = (String) model.getValueAt(row, 10).toString().trim(); 
+            if (row == -1) { JOptionPane.showMessageDialog(this, "Please select a reservation first."); return; }
 
-                String message;
-                String title = "Confirm Action";
+            int    ticketNum     = (int)    model.getValueAt(row, 0);
+            String ticketClass   =          model.getValueAt(row, 6).toString().trim();
+            String displayStatus =          model.getValueAt(row, 10).toString().trim();
 
-                if (displayStatus.equalsIgnoreCase("completed")) {
-                    message = "Would you like to remove this completed flight #" + ticketNum + " from your history?";
-                    title = "Clear History";
-                } else {
-                    message = "Are you sure you want to cancel Ticket #" + ticketNum + "?";
-                    if (ticketClass.equalsIgnoreCase("Economy")) {
-                        message = "DISCLAIMER: Economy tickets are subject to a $50 cancellation fee.\n" +
-                                  "Do you still want to proceed with cancelling Ticket #" + ticketNum + "?";
-                    }
-                    title = "Confirm Cancellation";
+            if (displayStatus.equalsIgnoreCase("completed")) {
+
+                if (JOptionPane.showConfirmDialog(this,
+                        "Remove completed flight record #" + ticketNum + " from your history?",
+                        "Clear History", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    if (DatabaseHelper.cancelBooking(ticketNum)) refreshData();
                 }
 
-                if (JOptionPane.showConfirmDialog(this, message, title, JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            } else if (ticketClass.equalsIgnoreCase("Economy")) {
+
+                JOptionPane.showMessageDialog(this,
+                    "Economy tickets cannot be cancelled.\n\n" +
+                    "Only Business and First class tickets are eligible for cancellation.",
+                    "Cancellation Not Allowed", JOptionPane.WARNING_MESSAGE);
+
+            } else {
+
+                if (JOptionPane.showConfirmDialog(this,
+                        "Cancel Ticket #" + ticketNum + "?\n" +
+                        ticketClass + " class tickets can be cancelled at no charge.",
+                        "Confirm Cancellation", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                     if (DatabaseHelper.cancelBooking(ticketNum)) {
+                        JOptionPane.showMessageDialog(this, "Ticket #" + ticketNum + " cancelled successfully.");
                         refreshData();
                     }
                 }

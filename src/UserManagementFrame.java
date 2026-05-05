@@ -24,9 +24,10 @@ public class UserManagementFrame extends JFrame {
         custPanel.add(new JScrollPane(customerTable), BorderLayout.CENTER);
 
         JPanel custBtns = new JPanel();
+        JButton addCustBtn  = new JButton("Add New Customer");
         JButton editCustBtn = new JButton("Edit Selected Customer");
-        JButton delCustBtn = new JButton("Delete Selected Customer");
-        custBtns.add(editCustBtn); custBtns.add(delCustBtn);
+        JButton delCustBtn  = new JButton("Delete Selected Customer");
+        custBtns.add(addCustBtn); custBtns.add(editCustBtn); custBtns.add(delCustBtn);
         custPanel.add(custBtns, BorderLayout.SOUTH);
         tabs.addTab("Customers", custPanel);
 
@@ -48,6 +49,27 @@ public class UserManagementFrame extends JFrame {
 
         refreshCustomers();
         refreshEmployees();
+
+        addCustBtn.addActionListener(e -> {
+            try {
+                String f    = JOptionPane.showInputDialog("First Name:");
+                if (f == null) return;
+                String l    = JOptionPane.showInputDialog("Last Name:");
+                String em   = JOptionPane.showInputDialog("Email:");
+                String ph   = JOptionPane.showInputDialog("Phone:");
+                String addr = JOptionPane.showInputDialog("Address:");
+                String dob  = JOptionPane.showInputDialog("Date of Birth (YYYY-MM-DD):");
+                String user = JOptionPane.showInputDialog("Username:");
+                String pass = JOptionPane.showInputDialog("Password:");
+
+                if (DatabaseHelper.registerCustomer(f, l, em, ph, addr, dob, user, pass)) {
+                    JOptionPane.showMessageDialog(this, "Customer account created successfully!");
+                    refreshCustomers();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to create account. Check for duplicate username or date format (YYYY-MM-DD).");
+                }
+            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage()); }
+        });
 
         editCustBtn.addActionListener(e -> {
             int row = customerTable.getSelectedRow();

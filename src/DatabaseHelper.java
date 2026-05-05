@@ -40,7 +40,7 @@ public class DatabaseHelper {
         return -1;
     }
 
-    public static boolean bookFlight(int customerId, String flightNums, String airlineId, String seatClass, boolean isFlex, float totalFare, boolean meal, int qtyToAdd) {
+    public static boolean bookFlight(int customerId, String flightNums, String airlineId, String seatClass, boolean isFlex, float totalFare, boolean meal, int qtyToAdd, String ticketType) {
         Connection conn = null;
         try {
             conn = getConnection();
@@ -60,7 +60,7 @@ public class DatabaseHelper {
                 matchStmt.setString(2, seatClass);
                 matchStmt.setBoolean(3, isFlex);
                 matchStmt.setBoolean(4, meal);
-                matchStmt.setString(5, flightNums.replace(" ", "")); // Standardize comma separation
+                matchStmt.setString(5, flightNums.replace(" ", ""));
                 ResultSet rs = matchStmt.executeQuery();
                 if (rs.next()) finalTicketNum = rs.getInt("ticket_number");
             }
@@ -75,6 +75,7 @@ public class DatabaseHelper {
                 }
             } else {
                 finalTicketNum = (int)(Math.random() * 900000) + 100000;
+
                 String insertTicketSQL = "INSERT INTO Ticket (ticket_number, customer_id, total_fare, purchase_datetime, status, is_flexible, quantity) VALUES (?, ?, ?, NOW(), 'active', ?, ?)";
                 try (PreparedStatement iStmt = conn.prepareStatement(insertTicketSQL)) {
                     iStmt.setInt(1, finalTicketNum);
@@ -273,7 +274,7 @@ public class DatabaseHelper {
                     int seatsOnThisLeg = rs.getInt("left_count");
                     if (seatsOnThisLeg < minSeats) minSeats = seatsOnThisLeg;
                 } else {
-                    return 0; // Flight not found
+                    return 0; 
                 }
             } catch (SQLException e) { e.printStackTrace(); }
         }
@@ -349,7 +350,6 @@ public class DatabaseHelper {
                 String aId = rs.getString("airline_id");
                 String sClass = rs.getString("class");
 
-                // Leverage your existing logic that checks multi-leg capacity
                 int remaining = getSeatsRemaining(fNum, sClass);
                 if (remaining > 0) {
                     if (availableFlights.length() > 0) availableFlights.append("\n");
@@ -657,6 +657,63 @@ public class DatabaseHelper {
         PreparedStatement stmt = getConnection().prepareStatement(query);
         stmt.setString(1, username);
         return stmt.executeQuery();
+    }
+
+
+    public static boolean cancelBookingWithFee(int ticketNum, float fee) {
+        String mark = "UPDATE Ticket SET status = 'cancelled_with_fee', " +
+                      "total_fare = GREATEST(total_fare - ?, 0) WHERE ticket_number = ?";
+        String del  = "DELETE FROM Ticket_Segment WHERE ticket_number = ?";
+        try (Connection conn = getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement s1 = conn.prepareStatement(mark);
+                 PreparedStatement s2 = conn.prepareStatement(del)) {
+                s1.setFloat(1, fee);
+                s1.setInt(2, ticketNum);
+                s1.executeUpdate();
+                s2.setInt(1, ticketNum);
+                s2.executeUpdate();
+            }
+            conn.commit();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    public static boolean updateAirport(String code, String name, String city, String country) {
+        String sql = "UPDATE Airport SET name=?, city=?, country=? WHERE airport_code=?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, name);
+            stmt.setString(2, city);
+            stmt.setString(3, country);
+            stmt.setString(4, code);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+
+    public static boolean updateFlight(String fNum, String aId, int acId, String dep, String arr,
+            String fDate, String aDate, String dTime, String aTime, String type, float price) {
+        String sql = "UPDATE Flight SET aircraft_id=?, departure_airport=?, arrival_airport=?, " +
+                "flight_date=?, arrival_date=?, departure_time=?, arrival_time=?, " +
+                "flight_type=?, base_price=? WHERE flight_number=? AND airline_id=?";
+        try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, acId);
+            stmt.setString(2, dep);
+            stmt.setString(3, arr);
+            stmt.setDate(4, Date.valueOf(fDate));
+            stmt.setDate(5, Date.valueOf(aDate));
+            stmt.setTime(6, Time.valueOf(dTime));
+            stmt.setTime(7, Time.valueOf(aTime));
+            stmt.setString(8, type);
+            stmt.setFloat(9, price);
+            stmt.setString(10, fNum);
+            stmt.setString(11, aId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
     public static boolean updateTicketDetails(int ticketNum, String newClass, String newSeat, float newTotal) {
