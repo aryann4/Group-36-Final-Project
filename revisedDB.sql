@@ -170,7 +170,10 @@ INSERT IGNORE INTO Airport (airport_code, name, city, country) VALUES
 
 INSERT IGNORE INTO Airline (airline_id, name) VALUES 
 ('UA', 'United Airlines'),
-('AA', 'American Airlines');
+('AA', 'American Airlines'),
+('DL', 'Delta'),
+('SW', 'Southwest Airlines'),
+('JB', 'JetBlue Airways');
 
 INSERT IGNORE INTO Aircraft (aircraft_id, model, manufacturer, total_seats, econ_capacity, bus_capacity, first_capacity, airline_id) VALUES 
 (1, '737', 'Boeing', 200, 150, 30, 20, 'UA'),
