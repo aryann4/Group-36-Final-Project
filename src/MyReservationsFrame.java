@@ -73,28 +73,55 @@ public class MyReservationsFrame extends JFrame {
 
         cancelBtn.addActionListener(e -> {
             int row = table.getSelectedRow();
-            if (row != -1) {
-                int ticketNum = (int) model.getValueAt(row, 0);
-                String ticketClass = (String) model.getValueAt(row, 6).toString().trim();
-                String displayStatus = (String) model.getValueAt(row, 10).toString().trim(); 
+            if (row == -1) { JOptionPane.showMessageDialog(this, "Please select a reservation first."); return; }
 
-                String message;
-                String title = "Confirm Action";
+            int    ticketNum     = (int)    model.getValueAt(row, 0);
+            String ticketClass   =          model.getValueAt(row, 6).toString().trim();
+            String displayStatus =          model.getValueAt(row, 10).toString().trim();
 
-                if (displayStatus.equalsIgnoreCase("completed")) {
-                    message = "Would you like to remove this completed flight #" + ticketNum + " from your history?";
-                    title = "Clear History";
-                } else {
-                    message = "Are you sure you want to cancel Ticket #" + ticketNum + "?";
-                    if (ticketClass.equalsIgnoreCase("Economy")) {
-                        message = "DISCLAIMER: Economy tickets are subject to a $50 cancellation fee.\n" +
-                                  "Do you still want to proceed with cancelling Ticket #" + ticketNum + "?";
-                    }
-                    title = "Confirm Cancellation";
+            if (displayStatus.equalsIgnoreCase("completed")) {
+                // Past flight — just remove from history view
+                if (JOptionPane.showConfirmDialog(this,
+                        "Remove completed flight record #" + ticketNum + " from your history?",
+                        "Clear History", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    if (DatabaseHelper.cancelBooking(ticketNum)) refreshData();
                 }
 
-                if (JOptionPane.showConfirmDialog(this, message, title, JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            } else if (ticketClass.equalsIgnoreCase("Economy")) {
+                // Economy: two-step confirmation with mandatory fee disclosure
+                int step1 = JOptionPane.showConfirmDialog(this,
+                    "ECONOMY TICKET CANCELLATION POLICY\n\n" +
+                    "Economy tickets are non-refundable without a cancellation fee.\n" +
+                    "A $50.00 fee will be charged for Ticket #" + ticketNum + ".\n\n" +
+                    "Do you understand and wish to proceed?",
+                    "Cancellation Fee Required", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+                if (step1 == JOptionPane.YES_OPTION) {
+                    int step2 = JOptionPane.showConfirmDialog(this,
+                        "FINAL CONFIRMATION\n\n" +
+                        "Ticket #" + ticketNum + " will be permanently cancelled.\n" +
+                        "A $50.00 cancellation fee has been recorded against this booking.\n\n" +
+                        "Confirm cancellation?",
+                        "Confirm Economy Cancellation", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+                    if (step2 == JOptionPane.YES_OPTION) {
+                        if (DatabaseHelper.cancelBookingWithFee(ticketNum, 50.0f)) {
+                            JOptionPane.showMessageDialog(this,
+                                "Ticket #" + ticketNum + " cancelled.\nA $50.00 cancellation fee has been applied.",
+                                "Cancellation Complete", JOptionPane.INFORMATION_MESSAGE);
+                            refreshData();
+                        }
+                    }
+                }
+
+            } else {
+                // Business / First — free cancellation
+                if (JOptionPane.showConfirmDialog(this,
+                        "Cancel Ticket #" + ticketNum + "?\n" +
+                        ticketClass + " class tickets can be cancelled at no charge.",
+                        "Confirm Cancellation", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                     if (DatabaseHelper.cancelBooking(ticketNum)) {
+                        JOptionPane.showMessageDialog(this, "Ticket #" + ticketNum + " cancelled successfully.");
                         refreshData();
                     }
                 }
