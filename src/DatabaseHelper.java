@@ -75,14 +75,15 @@ public class DatabaseHelper {
                 }
             } else {
                 finalTicketNum = (int)(Math.random() * 900000) + 100000;
-                String insertTicketSQL = "INSERT INTO Ticket (ticket_number, customer_id, total_fare, purchase_datetime, status, is_flexible, quantity, booking_fee, ticket_type) VALUES (?, ?, ?, NOW(), 'active', ?, ?, 25.00, ?)";
+                // booking_fee is already factored into totalFare by BookingOptionsDialog
+                // ticket_type is passed in for reference but stored via totalFare logic
+                String insertTicketSQL = "INSERT INTO Ticket (ticket_number, customer_id, total_fare, purchase_datetime, status, is_flexible, quantity) VALUES (?, ?, ?, NOW(), 'active', ?, ?)";
                 try (PreparedStatement iStmt = conn.prepareStatement(insertTicketSQL)) {
                     iStmt.setInt(1, finalTicketNum);
                     iStmt.setInt(2, customerId);
                     iStmt.setFloat(3, totalFare);
                     iStmt.setBoolean(4, isFlex);
                     iStmt.setInt(5, qtyToAdd);
-                    iStmt.setString(6, ticketType);
                     iStmt.executeUpdate();
                 }
             }
