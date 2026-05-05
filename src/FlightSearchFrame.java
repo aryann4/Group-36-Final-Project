@@ -71,7 +71,7 @@ public class FlightSearchFrame extends JFrame {
 
         JPanel p2 = new JPanel();
         p2.add(new JLabel("Max Price:")); maxPriceField = new JTextField(5); p2.add(maxPriceField);
-        p2.add(new JLabel("Airline:")); airlineFilter = new JComboBox<>(new String[]{"All", "UA", "AA"}); p2.add(airlineFilter);
+        p2.add(new JLabel("Airline:")); airlineFilter = new JComboBox<>(new String[]{"All", "UA", "AA", "DL", "SW", "JB"}); p2.add(airlineFilter);
         topPanel.add(p2);
 
         JPanel p3 = new JPanel();
