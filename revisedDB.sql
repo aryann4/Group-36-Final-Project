@@ -194,7 +194,8 @@ INSERT IGNORE INTO Flight (flight_number, airline_id, aircraft_id, departure_air
 ('UA999', 'UA', 1, 'LAX', 'EWR', '10:00:00', '18:00:00', 'domestic', 300.00, '2026-04-30', '2026-04-30'),
 ('UA888', 'UA', 1, 'LAX', 'ORD', '07:00:00', '09:00:00', 'domestic', 100.00, '2026-04-30', '2026-04-30'),
 ('UA777', 'UA', 1, 'ORD', 'EWR', '14:00:00', '16:30:00', 'domestic', 120.00, '2026-04-30', '2026-04-30'),
-('UA000', 'UA', 99, 'EWR', 'LAX', '12:00:00', '15:00:00', 'domestic', 100.00, '2026-04-26', '2026-04-26');
+('UA000', 'UA', 99, 'EWR', 'LAX', '12:00:00', '15:00:00', 'domestic', 100.00, '2026-04-26', '2026-04-26'),
+('UA202', 'UA', 1, 'EWR', 'SFO', '14:00:00', '17:30:00', 'domestic', 250.00, '2026-06-15', '2026-06-15');
 
 INSERT IGNORE INTO Customer (first_name, last_name, email, username, password, account_creation_date) VALUES 
 ('Aryan', 'Navin', 'test@rutgers.edu', 'an838', 'password123', '2026-04-26'), 
@@ -212,4 +213,18 @@ INSERT INTO Employee (employee_id, first_name, last_name, username, password, ro
 (1, 'Test', 'Rep', 'rep123', 'password123', 'representative'), 
 (2, 'System', 'Admin', 'admin123', 'password123', 'admin');
 
-INSERT INTO Flight_Days VALUES ('UA101', 'UA', 'Monday'), ('UA101', 'UA', 'Wednesday');
+INSERT INTO Flight_Days VALUES 
+('UA101', 'UA', 'Monday'), ('UA101', 'UA', 'Wednesday'), ('UA101', 'UA', 'Friday'),
+('UA303', 'UA', 'Tuesday'), ('UA303', 'UA', 'Thursday'),
+('AA404', 'AA', 'Monday'), ('AA404', 'AA', 'Friday'), ('AA404', 'AA', 'Sunday'),
+('UA505', 'UA', 'Wednesday'), ('UA505', 'UA', 'Saturday'),
+('DL606', 'DL', 'Monday'), ('DL606', 'DL', 'Thursday'),
+('UA707', 'UA', 'Tuesday'), ('UA707', 'UA', 'Saturday'),
+('AA808', 'AA', 'Monday'), ('AA808', 'AA', 'Wednesday'), ('AA808', 'AA', 'Friday'),
+('SW909', 'SW', 'Thursday'), ('SW909', 'SW', 'Sunday'),
+('AA111', 'AA', 'Tuesday'), ('AA111', 'AA', 'Thursday'),
+('UA999', 'UA', 'Monday'), ('UA999', 'UA', 'Wednesday'), ('UA999', 'UA', 'Friday'),
+('UA888', 'UA', 'Tuesday'), ('UA888', 'UA', 'Sunday'),
+('UA777', 'UA', 'Thursday'), ('UA777', 'UA', 'Saturday'),
+('UA000', 'UA', 'Friday'),
+('UA202', 'UA', 'Monday'), ('UA202', 'UA', 'Wednesday');
