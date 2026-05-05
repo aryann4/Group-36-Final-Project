@@ -8,10 +8,8 @@ import java.sql.*;
 public class FlightSearchFrame extends JFrame {
     private JTextField fromField, toField, dateField, returnDateField, maxPriceField;
     private JTextField targetUserField, editCustUserField;
-    // --- new filter fields ---
     private JComboBox<String> stopsFilter;
     private JTextField depTimeFromField, depTimeToField, arrTimeFromField, arrTimeToField;
-    // -------------------------
     private JCheckBox flexCheck;
     private JRadioButton oneWayRadio, roundTripRadio;
     private JComboBox<String> sortBox, airlineFilter;
@@ -43,11 +41,10 @@ public class FlightSearchFrame extends JFrame {
 
     private JPanel createSearchPanel() {
         JPanel mainPanel = new JPanel(new BorderLayout());
-        // rows: rep row + p1 + p2 + p3 + p4
         int rows = isRepresentative ? 5 : 4;
         JPanel topPanel = new JPanel(new GridLayout(rows, 1));
 
-        // --- Representative: target customer ---
+
         if (isRepresentative) {
             JPanel repPanel = new JPanel();
             repPanel.setBackground(new Color(230, 240, 255));
@@ -57,7 +54,7 @@ public class FlightSearchFrame extends JFrame {
             topPanel.add(repPanel);
         }
 
-        // --- Row 1: trip type, airports, dates, flex ---
+
         JPanel p1 = new JPanel();
         oneWayRadio   = new JRadioButton("One-Way", true);
         roundTripRadio = new JRadioButton("Round-Trip");
@@ -74,7 +71,7 @@ public class FlightSearchFrame extends JFrame {
         flexCheck = new JCheckBox("Flexible (+/- 3 days)"); p1.add(flexCheck);
         topPanel.add(p1);
 
-        // --- Row 2: price, airline, stops ---
+
         JPanel p2 = new JPanel();
         p2.add(new JLabel("Max Price:")); maxPriceField = new JTextField(5); p2.add(maxPriceField);
         p2.add(new JLabel("Airline:"));
@@ -83,7 +80,7 @@ public class FlightSearchFrame extends JFrame {
         stopsFilter = new JComboBox<>(new String[]{"Any Stops", "Non-stop only", "1 Stop only"}); p2.add(stopsFilter);
         topPanel.add(p2);
 
-        // --- Row 3: departure time range + arrival time range ---
+
         JPanel p3 = new JPanel();
         p3.add(new JLabel("Dep. Time From (HH:MM):")); depTimeFromField = new JTextField("00:00", 5); p3.add(depTimeFromField);
         p3.add(new JLabel("To:"));                     depTimeToField   = new JTextField("23:59", 5); p3.add(depTimeToField);
@@ -91,7 +88,7 @@ public class FlightSearchFrame extends JFrame {
         p3.add(new JLabel("To:"));                     arrTimeToField   = new JTextField("23:59", 5); p3.add(arrTimeToField);
         topPanel.add(p3);
 
-        // --- Row 4: sort + search ---
+
         JPanel p4 = new JPanel();
         p4.add(new JLabel("Sort By:"));
         sortBox = new JComboBox<>(new String[]{"None", "Price (Low to High)", "Departure Time", "Arrival Time", "Flight Duration"});
@@ -222,7 +219,7 @@ public class FlightSearchFrame extends JFrame {
         String finalFlightList = fNum;
         float  finalBasePrice  = basePrice;
         String routeDesc = tableModel.getValueAt(row, 3) + " -> " + tableModel.getValueAt(row, 4);
-        // Determine ticket type for DB storage
+
         String ticketType = "one-way";
 
         if (roundTripRadio.isSelected() && outboundLegData != null) {
@@ -286,13 +283,13 @@ public class FlightSearchFrame extends JFrame {
         String maxPrice = maxPriceField.getText().trim();
         String sortBy  = (String) sortBox.getSelectedItem();
 
-        // ---- new filter values ----
+
         String stopsChoice  = (String) stopsFilter.getSelectedItem();
         String depFrom      = depTimeFromField.getText().trim();
         String depTo        = depTimeToField.getText().trim();
         String arrFrom      = arrTimeFromField.getText().trim();
         String arrTo        = arrTimeToField.getText().trim();
-        // Normalise to HH:MM:SS for MySQL TIME comparison
+
         if (!depFrom.isEmpty() && depFrom.length() == 5) depFrom += ":00";
         if (!depTo.isEmpty()   && depTo.length()   == 5) depTo   += ":00";
         if (!arrFrom.isEmpty() && arrFrom.length() == 5) arrFrom += ":00";
@@ -324,23 +321,22 @@ public class FlightSearchFrame extends JFrame {
             ") AS combined_results WHERE 1=1 "
         );
 
-        // ---- existing filters ----
+
         if (!airline.equals("All"))   sql.append(" AND airline_id = '").append(airline).append("'");
         if (!maxPrice.isEmpty())       sql.append(" AND base_price <= ").append(maxPrice);
 
-        // ---- NEW: stops filter ----
+
         if (stopsChoice.equals("Non-stop only")) sql.append(" AND stops = 0");
         if (stopsChoice.equals("1 Stop only"))   sql.append(" AND stops = 1");
 
-        // ---- NEW: departure time window ----
         if (!depFrom.isEmpty()) sql.append(" AND departure_time >= '").append(depFrom).append("'");
         if (!depTo.isEmpty())   sql.append(" AND departure_time <= '").append(depTo).append("'");
 
-        // ---- NEW: arrival time window ----
+
         if (!arrFrom.isEmpty()) sql.append(" AND arrival_time >= '").append(arrFrom).append("'");
         if (!arrTo.isEmpty())   sql.append(" AND arrival_time <= '").append(arrTo).append("'");
 
-        // ---- sort ----
+ 
         if      (sortBy.contains("Price"))     sql.append(" ORDER BY base_price ASC");
         else if (sortBy.contains("Departure")) sql.append(" ORDER BY flight_date ASC, departure_time ASC");
         else if (sortBy.contains("Arrival"))   sql.append(" ORDER BY arrival_date ASC, arrival_time ASC");
