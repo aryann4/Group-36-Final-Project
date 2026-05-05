@@ -90,7 +90,6 @@ public class FlightSearchFrame extends JFrame {
         JButton bookBtn = new JButton(isRepresentative ? "Confirm Reservation for Customer" : "Book Selected Flight");
         mainPanel.add(bookBtn, BorderLayout.SOUTH);
 
-        // --- Listeners ---
         roundTripRadio.addActionListener(e -> returnDateField.setEnabled(true));
         oneWayRadio.addActionListener(e -> {
             returnDateField.setEnabled(false);
@@ -121,10 +120,8 @@ public class FlightSearchFrame extends JFrame {
         JButton updateBtn = new JButton("Update Selected Reservation");
         editPanel.add(updateBtn, BorderLayout.SOUTH);
 
-        // Fetch user tickets
         loadBtn.addActionListener(e -> refreshEditTable());
 
-        // Update logic for class and seat changes [cite: 37, 56]
         updateBtn.addActionListener(e -> {
             int row = editTicketsTable.getSelectedRow();
             if (row == -1) {
@@ -145,10 +142,9 @@ public class FlightSearchFrame extends JFrame {
             if (newSeat == null) return;
             
             float newPrice = oldPrice;
-            // Requirement: Economy tickets incur a fee for changes [cite: 37]
             if (oldClass.equalsIgnoreCase("economy") && !newClass.equalsIgnoreCase("economy")) {
                 newPrice += 50.0f; 
-                JOptionPane.showMessageDialog(this, "Upgrade from Economy detected. A $50 change fee has been applied.");
+                JOptionPane.showMessageDialog(this, "Upgrade from Economy. A $50 change fee has been applied.");
             }
 
             if (DatabaseHelper.updateTicketDetails(tNum, newClass, newSeat, newPrice)) {

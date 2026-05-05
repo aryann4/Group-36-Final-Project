@@ -16,12 +16,9 @@ public class AdminReportsFrame extends JFrame {
         setLocationRelativeTo(null);
 
         JTabbedPane tabs = new JTabbedPane();
-
-        // --- TAB 1: SALES & RESERVATION LOOKUPS ---
         JPanel searchPanel = new JPanel(new BorderLayout());
         JPanel searchControls = new JPanel(new FlowLayout(FlowLayout.LEFT));
         
-        // Monthly Sales Section
         searchControls.add(new JLabel("Month (1-12):"));
         monthField = new JTextField(2); searchControls.add(monthField);
         searchControls.add(new JLabel("Year:"));
@@ -31,7 +28,6 @@ public class AdminReportsFrame extends JFrame {
         
         searchControls.add(new JSeparator(SwingConstants.VERTICAL));
 
-        // Flight Lookup Section
         searchControls.add(new JLabel("Flight #:"));
         flightSearchField = new JTextField(6); searchControls.add(flightSearchField);
         JButton flightResBtn = new JButton("Find Reservations");
@@ -39,7 +35,6 @@ public class AdminReportsFrame extends JFrame {
 
         searchControls.add(new JSeparator(SwingConstants.VERTICAL));
 
-        // Name Lookup Section
         searchControls.add(new JLabel("First:"));
         fNameField = new JTextField(6); searchControls.add(fNameField);
         searchControls.add(new JLabel("Last:"));
@@ -50,7 +45,6 @@ public class AdminReportsFrame extends JFrame {
         searchPanel.add(searchControls, BorderLayout.NORTH);
         tabs.addTab("Sales & Lookups", searchPanel);
 
-        // --- TAB 2: REVENUE ANALYTICS ---
         JPanel revPanel = new JPanel(new FlowLayout());
         JButton revAirBtn = new JButton("Revenue by Airline");
         JButton revFltBtn = new JButton("Revenue by Flight");
@@ -58,7 +52,6 @@ public class AdminReportsFrame extends JFrame {
         revPanel.add(revAirBtn); revPanel.add(revFltBtn); revPanel.add(revCustBtn);
         tabs.addTab("Revenue Analytics", revPanel);
 
-        // --- TAB 3: PERFORMANCE LEADERBOARDS ---
         JPanel topPanel = new JPanel(new FlowLayout());
         JButton topCustBtn = new JButton("Find Top Customer");
         JButton topFltBtn = new JButton("Find Top 5 Flights");
@@ -67,12 +60,9 @@ public class AdminReportsFrame extends JFrame {
 
         add(tabs, BorderLayout.NORTH);
 
-        // --- SHARED TABLE FOR RESULTS ---
         tableModel = new DefaultTableModel();
         reportTable = new JTable(tableModel);
         add(new JScrollPane(reportTable), BorderLayout.CENTER);
-
-        // --- LISTENERS ---
 
         salesBtn.addActionListener(e -> {
             try {
@@ -128,9 +118,6 @@ public class AdminReportsFrame extends JFrame {
         });
     }
 
-    /**
-     * Helper to dynamically refresh the results table based on the button clicked.
-     */
     private void updateTable(ResultSet rs, String[] columns) throws SQLException {
         tableModel.setColumnIdentifiers(columns);
         tableModel.setRowCount(0);

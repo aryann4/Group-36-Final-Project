@@ -4,17 +4,14 @@ import java.sql.*;
 import java.util.Random;
 
 public class DatabaseHelper {
-    // Database credentials
     private static final String URL = "jdbc:mysql://localhost:3306/TravelReservationDB";
     private static final String USER = "root";
     private static final String PASSWORD = "group36rootpasswordPIDM";
 
-    // 1. Get a connection to the database
     public static Connection getConnection() throws SQLException {
         return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 
-    // 2. Validate Login (Essential for LoginFrame)
     public static boolean validateLogin(String username, String password) {
         String query = "SELECT * FROM Customer WHERE username = ? AND password = ?";
         try (Connection conn = getConnection();
@@ -30,7 +27,6 @@ public class DatabaseHelper {
         }
     }
 
-    // 3. Get Customer ID (Needed to link a ticket to a user)
     public static int getCustomerId(String username) {
         String query = "SELECT customer_id FROM Customer WHERE username = ?";
         try (Connection conn = getConnection();
@@ -44,11 +40,6 @@ public class DatabaseHelper {
         return -1;
     }
 
-    /**
-     * UPDATED BOOKING ENGINE: Now allows merging/stacking for ALL flight types,
-     * including multi-leg journeys and Round-Trips.
-     * Also automatically removes user from the waitlist upon successful booking.
-     */
     public static boolean bookFlight(int customerId, String flightNums, String airlineId, String seatClass, boolean isFlex, float totalFare, boolean meal, int qtyToAdd) {
         Connection conn = null;
         try {
@@ -57,7 +48,6 @@ public class DatabaseHelper {
 
             int finalTicketNum = -1;
 
-            // 1. STACKING CHECK: Now allowed for multi-leg journeys too
             String findMatchSQL = "SELECT t.ticket_number FROM Ticket t " +
                                   "JOIN Ticket_Segment s ON t.ticket_number = s.ticket_number " +
                                   "WHERE t.customer_id = ? AND t.status = 'active' " +
@@ -76,7 +66,6 @@ public class DatabaseHelper {
             }
 
             if (finalTicketNum != -1) {
-                // OPTION A: Match found! Update quantity and fare
                 String updateTicketSQL = "UPDATE Ticket SET quantity = quantity + ?, total_fare = total_fare + ? WHERE ticket_number = ?";
                 try (PreparedStatement uStmt = conn.prepareStatement(updateTicketSQL)) {
                     uStmt.setInt(1, qtyToAdd);
@@ -85,7 +74,6 @@ public class DatabaseHelper {
                     uStmt.executeUpdate();
                 }
             } else {
-                // OPTION B: No match. Create new ticket.
                 finalTicketNum = (int)(Math.random() * 900000) + 100000;
                 String insertTicketSQL = "INSERT INTO Ticket (ticket_number, customer_id, total_fare, purchase_datetime, status, is_flexible, quantity) VALUES (?, ?, ?, NOW(), 'active', ?, ?)";
                 try (PreparedStatement iStmt = conn.prepareStatement(insertTicketSQL)) {
@@ -98,7 +86,6 @@ public class DatabaseHelper {
                 }
             }
 
-            // 3. Add individual seat segments
             String[] legs = flightNums.split(",");
             int nextSeq = 1;
             
@@ -143,7 +130,6 @@ public class DatabaseHelper {
                 sStmt.executeBatch();
             }
 
-            // CLEANUP: Remove user from waitlist for this flight after successful booking
             removeFromWaitingList(customerId, flightNums);
 
             conn.commit();
@@ -157,8 +143,6 @@ public class DatabaseHelper {
         }
     }
 
-    // 4. Retrieve Reservations (Identifies first and last airport for accurate Route display)
-    // UPDATED: Now also retrieves arr_time for precise "active" vs "completed" checks.
     public static ResultSet getCustomerTickets(int customerId) throws SQLException {
         String query = "SELECT t.ticket_number, " +
                     "GROUP_CONCAT(DISTINCT s.flight_number ORDER BY s.sequence_number SEPARATOR ', ') AS flight_number, " +
@@ -181,7 +165,6 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-    // 5. Check for existing active booking
     public static boolean isAlreadyBooked(int customerId, String flightNum, String airlineId) {
         String sql = "SELECT COUNT(*) FROM Ticket t JOIN Ticket_Segment s ON t.ticket_number = s.ticket_number " +
                     "WHERE t.customer_id = ? AND s.flight_number = ? AND s.airline_id = ? AND t.status = 'active'";
@@ -196,7 +179,6 @@ public class DatabaseHelper {
         return false;
     }
 
-    // 6. Cancel Booking (Transactional delete from both Ticket and Segment tables)
     public static boolean cancelBooking(int ticketNum) {
         String deleteSegment = "DELETE FROM Ticket_Segment WHERE ticket_number = ?";
         String deleteTicket = "DELETE FROM Ticket WHERE ticket_number = ?";
@@ -219,7 +201,6 @@ public class DatabaseHelper {
         }
     }
 
-    // 7. Register New Customer
     public static boolean registerCustomer(String fName, String lName, String email, String phone, String addr, String dob, String user, String pass) {
         String sql = "INSERT INTO Customer (first_name, last_name, email, phone, address, dob, username, password, account_creation_date) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())";
@@ -240,7 +221,6 @@ public class DatabaseHelper {
             }
     }
 
-    // 8. Fetch Account Creation Date
     public static String getAccountCreationDate(String username) {
         String query = "SELECT account_creation_date FROM Customer WHERE username = ?";
         try (Connection conn = getConnection();
@@ -256,7 +236,6 @@ public class DatabaseHelper {
         return "Unknown";
     }
 
-    // 9. Add Customer to Flight Waiting List
     public static void addToWaitingList(int customerId, String flightNum, String airlineId, String seatClass) {
         String sql = "INSERT INTO Waiting_List (customer_id, flight_number, airline_id, class, added_date) " +
                     "VALUES (?, ?, ?, ?, NOW())";
@@ -272,9 +251,6 @@ public class DatabaseHelper {
         }
     }
 
-    /**
-     * 10. Calculate remaining capacity for a specific flight class
-     */
     public static int getSeatsRemaining(String flightNums, String seatClass) {
         String[] legs = flightNums.split(",");
         int minSeats = Integer.MAX_VALUE;
@@ -284,7 +260,6 @@ public class DatabaseHelper {
             String capCol = seatClass.equalsIgnoreCase("Economy") ? "econ_capacity" : 
                             seatClass.equalsIgnoreCase("Business") ? "bus_capacity" : "first_capacity";
             
-            // Using COALESCE to fix negative number issue if capacity is NULL
             String query = "SELECT (COALESCE(a." + capCol + ", 0) - (SELECT COUNT(*) FROM Ticket_Segment s " +
                         "WHERE s.flight_number = f.flight_number AND s.class = ?)) as left_count " +
                         "FROM Flight f JOIN Aircraft a ON f.aircraft_id = a.aircraft_id WHERE f.flight_number = ?";
@@ -306,7 +281,6 @@ public class DatabaseHelper {
     }
 
 
-    // 11. Check if user is already on waitlist
     public static boolean isAlreadyOnWaitingList(int customerId, String flightNum) {
         String sql = "SELECT COUNT(*) FROM Waiting_List WHERE customer_id = ? AND flight_number = ?";
         try (Connection conn = getConnection();
@@ -319,7 +293,6 @@ public class DatabaseHelper {
         return false;
     }
 
-    // 12. Determine dynamic waitlist position
     public static int getWaitlistPosition(int customerId, String flightNum) {
         String sql = "SELECT COUNT(*) + 1 FROM Waiting_List " +
                     "WHERE flight_number = ? AND added_date < " +
@@ -337,14 +310,6 @@ public class DatabaseHelper {
         return 1; 
     }
 
-
-
-
-    // --- NEW Q&A SYSTEM METHODS ---
-
-    /**
-     * Browses the QA table. If keyword is provided, filters by that word.
-     */
     public static ResultSet getQAEntries(String keyword) throws SQLException {
         String query = "SELECT question_text, COALESCE(answer_text, 'Pending Response...') AS answer_text " +
                        "FROM QA_Entry WHERE question_text LIKE ? OR answer_text LIKE ? " +
@@ -357,9 +322,6 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-    /**
-     * Posts a new question to the database.
-     */
     public static boolean postQuestion(int customerId, String question) {
         String sql = "INSERT INTO QA_Entry (customer_id, question_text) VALUES (?, ?)";
         try (Connection conn = getConnection();
@@ -373,10 +335,6 @@ public class DatabaseHelper {
         }
     }
 
-    /**
-     * Scans the waitlist for the current user and returns a list of flights 
-     * that now have available seats.
-     */
     public static String checkWaitlistAlerts(int customerId) {
         String query = "SELECT flight_number, airline_id, class FROM Waiting_List WHERE customer_id = ?";
         StringBuilder availableFlights = new StringBuilder();
@@ -405,9 +363,6 @@ public class DatabaseHelper {
         return availableFlights.toString();
     }
 
-    /**
-     * NEW: Removes a specific user from the waitlist for a specific flight.
-     */
     public static void removeFromWaitingList(int customerId, String flightNum) {
         String sql = "DELETE FROM Waiting_List WHERE customer_id = ? AND flight_number = ?";
         try (Connection conn = getConnection();
@@ -418,12 +373,6 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-
-    // --- EMPLOYEE & ROLE MANAGEMENT METHODS ---
-
-    /**
-     * Validates employee credentials against the Employee table. 
-     */
     public static boolean validateEmployeeLogin(String username, String password) {
         String query = "SELECT * FROM Employee WHERE username = ? AND password = ?";
         try (Connection conn = getConnection();
@@ -438,9 +387,6 @@ public class DatabaseHelper {
         }
     }
 
-    /**
-     * Retrieves the specific role (Admin or Customer Representative) for an employee. 
-     */
     public static String getEmployeeRole(String username) {
         String query = "SELECT role FROM Employee WHERE username = ?";
         try (Connection conn = getConnection();
@@ -454,12 +400,6 @@ public class DatabaseHelper {
         return null;
     }
         
-
-        // --- STEP 2: REPRESENTATIVE SUPPORT MANAGEMENT METHODS ---
-
-    /**
-     * Retrieves all questions from the QA_Entry table that currently have no answer.
-     */
     public static ResultSet getPendingQuestions() throws SQLException {
         String query = "SELECT q.qa_id, COALESCE(c.username, 'System') as author, q.question_text " +
                        "FROM QA_Entry q LEFT JOIN Customer c ON q.customer_id = c.customer_id " +
@@ -469,9 +409,6 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-    /**
-     * Updates a specific Q&A entry with an answer provided by a representative.
-     */
     public static boolean answerQuestion(int qaId, String answerText) {
         String sql = "UPDATE QA_Entry SET answer_text = ? WHERE qa_id = ?";
         try (Connection conn = getConnection();
@@ -485,10 +422,6 @@ public class DatabaseHelper {
         }
     }
 
-    /**
-     * Retrieves the list of passengers currently on the waiting list for a specific flight.
-     * Requirement: [cite: 58, 111]
-     */
     public static ResultSet getFlightWaitlist(String flightNum) throws SQLException {
         String query = "SELECT c.first_name, c.last_name, w.class, w.added_date " +
                        "FROM Waiting_List w JOIN Customer c ON w.customer_id = c.customer_id " +
@@ -500,10 +433,6 @@ public class DatabaseHelper {
     }
 
 
-    /**
-     * Requirement: Produce a list of all flights for a given airport (departing and arriving).
-     * Updated to include both Departure and Arrival dates/times.
-     */
     public static ResultSet getAirportTraffic(String airportCode) throws SQLException {
         String query = "SELECT flight_number, airline_id, departure_airport, arrival_airport, " + 
                        "flight_date, arrival_date, departure_time, arrival_time " +
@@ -516,13 +445,6 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-
-
-
-
-    // --- STEP 4: INFRASTRUCTURE MANAGEMENT (CRUD) METHODS ---
-
-    // 1. AIRCRAFT MANAGEMENT
     public static ResultSet getAllAircraft() throws SQLException {
         String query = "SELECT * FROM Aircraft ORDER BY aircraft_id";
         Connection conn = getConnection();
@@ -556,7 +478,6 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-    // 2. AIRPORT MANAGEMENT
     public static ResultSet getAllAirports() throws SQLException {
         String query = "SELECT * FROM Airport ORDER BY airport_code";
         Connection conn = getConnection();
@@ -579,7 +500,6 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-    // 3. FLIGHT MANAGEMENT
     public static ResultSet getAllFlightsRaw() throws SQLException {
         String query = "SELECT * FROM Flight ORDER BY flight_date DESC, departure_time ASC";
         Connection conn = getConnection();
@@ -605,23 +525,12 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-
-
-
-    // --- STEP 5: ADMIN USER MANAGEMENT (CRUD) METHODS ---
-
-    /**
-     * Retrieves all customers for the Admin management table. 
-     */
     public static ResultSet getAllCustomers() throws SQLException {
         String query = "SELECT * FROM Customer ORDER BY last_name, first_name";
         Connection conn = getConnection();
         return conn.createStatement().executeQuery(query);
     }
 
-    /**
-     * Updates existing customer information. 
-     */
     public static boolean updateCustomer(int id, String fName, String lName, String email, String phone, String addr, String user, String pass) {
         String sql = "UPDATE Customer SET first_name=?, last_name=?, email=?, phone=?, address=?, username=?, password=? WHERE customer_id=?";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -632,9 +541,6 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-    /**
-     * Deletes a customer account. 
-     */
     public static boolean deleteCustomer(int id) {
         String sql = "DELETE FROM Customer WHERE customer_id = ?";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -643,18 +549,12 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-    /**
-     * Retrieves all employees for the Admin management table. 
-     */
     public static ResultSet getAllEmployees() throws SQLException {
         String query = "SELECT * FROM Employee ORDER BY role, last_name";
         Connection conn = getConnection();
         return conn.createStatement().executeQuery(query);
     }
 
-    /**
-     * Adds a new employee (Admin or Representative). 
-     */
     public static boolean addEmployee(int id, String fName, String lName, String email, String phone, String user, String pass, String role) {
         String sql = "INSERT INTO Employee (employee_id, first_name, last_name, email, phone, username, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -665,10 +565,6 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-    /**
-     * Updates existing employee information.
-     * Fixed: Parameter indexing corrected to match the 8 SQL placeholders.
-     */
     public static boolean updateEmployee(int id, String fName, String lName, String email, String phone, String user, String pass, String role) {
         String sql = "UPDATE Employee SET first_name=?, last_name=?, email=?, phone=?, username=?, password=?, role=? WHERE employee_id=?";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -684,9 +580,6 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-    /**
-     * Deletes an employee account. 
-     */
     public static boolean deleteEmployee(int id) {
         String sql = "DELETE FROM Employee WHERE employee_id = ?";
         try (Connection conn = getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -695,16 +588,6 @@ public class DatabaseHelper {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
 
-
-
-
-
-
-    // --- STEP 6: ADMIN REPORTS & ANALYTICS ---
-
-    /**
-     * Retrieves all tickets sold in a specific month and year.
-     */
     public static ResultSet getMonthlySales(int month, int year) throws SQLException {
         String query = "SELECT ticket_number, customer_id, total_fare, purchase_datetime FROM Ticket " +
                        "WHERE MONTH(purchase_datetime) = ? AND YEAR(purchase_datetime) = ?";
@@ -714,9 +597,6 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-    /**
-     * Lists all reservations for a specific flight number.
-     */
     public static ResultSet getReservationsByFlight(String flightNum) throws SQLException {
         String query = "SELECT t.ticket_number, c.first_name, c.last_name, ts.class FROM Ticket t " +
                        "JOIN Customer c ON t.customer_id = c.customer_id " +
@@ -727,9 +607,6 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-    /**
-     * Searches for reservations by customer name (supports partial matches).
-     */
     public static ResultSet getReservationsByCustomer(String firstName, String lastName) throws SQLException {
         String query = "SELECT t.ticket_number, ts.flight_number, ts.airline_id, t.total_fare FROM Ticket t " +
                        "JOIN Customer c ON t.customer_id = c.customer_id " +
@@ -741,36 +618,24 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-    /**
-     * Calculates total revenue grouped by flight number.
-     */
     public static ResultSet getRevenueByFlight() throws SQLException {
         String query = "SELECT flight_number, SUM(total_fare) as revenue FROM Ticket t " +
                        "JOIN Ticket_Segment ts ON t.ticket_number = ts.ticket_number GROUP BY flight_number";
         return getConnection().createStatement().executeQuery(query);
     }
 
-    /**
-     * Calculates total revenue grouped by airline.
-     */
     public static ResultSet getRevenueByAirline() throws SQLException {
         String query = "SELECT airline_id, SUM(total_fare) as revenue FROM Ticket t " +
                        "JOIN Ticket_Segment ts ON t.ticket_number = ts.ticket_number GROUP BY airline_id";
         return getConnection().createStatement().executeQuery(query);
     }
 
-    /**
-     * Calculates total revenue generated by each customer.
-     */
     public static ResultSet getRevenueByCustomer() throws SQLException {
         String query = "SELECT c.first_name, c.last_name, SUM(t.total_fare) as revenue FROM Ticket t " +
                        "JOIN Customer c ON t.customer_id = c.customer_id GROUP BY c.customer_id";
         return getConnection().createStatement().executeQuery(query);
     }
 
-    /**
-     * Finds the single customer who has spent the most money.
-     */
     public static ResultSet getTopCustomer() throws SQLException {
         String query = "SELECT c.first_name, c.last_name, SUM(t.total_fare) as revenue FROM Ticket t " +
                        "JOIN Customer c ON t.customer_id = c.customer_id GROUP BY c.customer_id " +
@@ -778,25 +643,12 @@ public class DatabaseHelper {
         return getConnection().createStatement().executeQuery(query);
     }
 
-    /**
-     * Ranks the top 5 flights by ticket sales volume.
-     */
     public static ResultSet getTopFlights() throws SQLException {
         String query = "SELECT flight_number, COUNT(*) as sales FROM Ticket_Segment " +
                        "GROUP BY flight_number ORDER BY sales DESC LIMIT 5";
         return getConnection().createStatement().executeQuery(query);
     }
 
-
-
-
-
-
-    // --- STEP 7: REPRESENTATIVE RESERVATION EDITING ---
-
-    /**
-     * Retrieves all active ticket segments for a specific customer.
-     */
     public static ResultSet getCustomerTickets(String username) throws SQLException {
         String query = "SELECT t.ticket_number, ts.flight_number, ts.airline_id, ts.class, t.total_fare, ts.seat_number " +
                        "FROM Ticket t JOIN Ticket_Segment ts ON t.ticket_number = ts.ticket_number " +
@@ -807,16 +659,12 @@ public class DatabaseHelper {
         return stmt.executeQuery();
     }
 
-    /**
-     * Updates ticket details and price.
-     * Note: Total fare is updated to reflect class changes or fees[cite: 37, 39].
-     */
     public static boolean updateTicketDetails(int ticketNum, String newClass, String newSeat, float newTotal) {
         String sqlSegment = "UPDATE Ticket_Segment SET class = ?, seat_number = ? WHERE ticket_number = ?";
         String sqlTicket = "UPDATE Ticket SET total_fare = ? WHERE ticket_number = ?";
         
         try (Connection conn = getConnection()) {
-            conn.setAutoCommit(false); // Use transaction for atomic update
+            conn.setAutoCommit(false);
             try (PreparedStatement s1 = conn.prepareStatement(sqlSegment);
                  PreparedStatement s2 = conn.prepareStatement(sqlTicket)) {
                 

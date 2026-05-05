@@ -4,7 +4,6 @@ import java.awt.*;
 
 public class CustomerDashboard extends JFrame {
     public CustomerDashboard(String username) {
-        // Retrieve account info
         String creationDate = DatabaseHelper.getAccountCreationDate(username);
         int customerId = DatabaseHelper.getCustomerId(username);
 
@@ -18,7 +17,6 @@ public class CustomerDashboard extends JFrame {
         welcomeLabel.setFont(new Font("Arial", Font.BOLD, 20));
         add(welcomeLabel, BorderLayout.NORTH);
 
-        // Buttons for main features
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new GridLayout(4, 1, 10, 10));
 
@@ -37,8 +35,6 @@ public class CustomerDashboard extends JFrame {
         JLabel footerLabel = new JLabel("Member since: " + creationDate, SwingConstants.RIGHT);
         add(footerLabel, BorderLayout.SOUTH);
 
-        // --- NEW: Waitlist Alert Logic ---
-        // This runs immediately when the dashboard opens
         String alerts = DatabaseHelper.checkWaitlistAlerts(customerId);
         if (alerts != null && !alerts.isEmpty()) {
             JOptionPane.showMessageDialog(this, 
@@ -47,8 +43,6 @@ public class CustomerDashboard extends JFrame {
                 "Flight Availability Notification", 
                 JOptionPane.INFORMATION_MESSAGE);
         }
-
-        // --- Action Listeners ---
 
         logoutButton.addActionListener(e -> {
             new LoginFrame().setVisible(true);

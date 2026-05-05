@@ -18,7 +18,6 @@ public class RepSupportFrame extends JFrame {
 
         JTabbedPane tabs = new JTabbedPane();
 
-        // --- TAB 1: ANSWER QUESTIONS ---
         JPanel qPanel = new JPanel(new BorderLayout());
         qModel = new DefaultTableModel(new String[]{"ID", "User", "Question"}, 0);
         questionTable = new JTable(qModel);
@@ -28,7 +27,6 @@ public class RepSupportFrame extends JFrame {
         qPanel.add(answerBtn, BorderLayout.SOUTH);
         tabs.addTab("Pending Questions", qPanel);
 
-        // --- TAB 2: FLIGHT WAITLISTS ---
         JPanel wPanel = new JPanel(new BorderLayout());
         JPanel topW = new JPanel();
         topW.add(new JLabel("Enter Flight #:"));
@@ -43,7 +41,6 @@ public class RepSupportFrame extends JFrame {
         wPanel.add(new JScrollPane(waitlistTable), BorderLayout.CENTER);
         tabs.addTab("Flight Waitlists", wPanel);
 
-        // --- TAB 3: AIRPORT TRAFFIC ---
         JPanel tPanel = new JPanel(new BorderLayout());
         JPanel topT = new JPanel();
         topT.add(new JLabel("Airport Code (e.g. EWR):"));
@@ -53,7 +50,6 @@ public class RepSupportFrame extends JFrame {
         topT.add(searchTBtn);
         tPanel.add(topT, BorderLayout.NORTH);
 
-        // UPDATED: More detailed column headers for date and time 
         String[] tCols = {"Flight #", "Airline", "From", "To", "Departure Date", "Arrival Date", "Departure Time", "Arrival Time"};
         tModel = new DefaultTableModel(tCols, 0);
         trafficTable = new JTable(tModel);
@@ -62,7 +58,6 @@ public class RepSupportFrame extends JFrame {
 
         add(tabs, BorderLayout.CENTER);
 
-        // Listeners
         refreshQuestions();
 
         answerBtn.addActionListener(e -> {

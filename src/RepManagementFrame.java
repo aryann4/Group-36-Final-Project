@@ -17,7 +17,6 @@ public class RepManagementFrame extends JFrame {
 
         JTabbedPane tabs = new JTabbedPane();
 
-        // --- TAB 1: AIRCRAFT MANAGEMENT ---
         JPanel acPanel = new JPanel(new BorderLayout());
         String[] acCols = {"ID", "Model", "Manufacturer", "Total Seats", "Econ", "Bus", "First", "Airline"};
         acModel = new DefaultTableModel(acCols, 0);
@@ -32,7 +31,6 @@ public class RepManagementFrame extends JFrame {
         acPanel.add(acButtons, BorderLayout.SOUTH);
         tabs.addTab("Aircraft", acPanel);
 
-        // --- TAB 2: AIRPORT MANAGEMENT ---
         JPanel apPanel = new JPanel(new BorderLayout());
         String[] apCols = {"Code", "Name", "City", "Country"};
         apModel = new DefaultTableModel(apCols, 0);
@@ -46,7 +44,6 @@ public class RepManagementFrame extends JFrame {
         apPanel.add(apButtons, BorderLayout.SOUTH);
         tabs.addTab("Airports", apPanel);
 
-        // --- TAB 3: FLIGHT MANAGEMENT ---
         JPanel fPanel = new JPanel(new BorderLayout());
         String[] fCols = {"Flight #", "Airline", "AC ID", "From", "To", "Dep Date", "Arr Date", "Dep Time", "Arr Time", "Type", "Price"};
         fModel = new DefaultTableModel(fCols, 0);
@@ -62,14 +59,11 @@ public class RepManagementFrame extends JFrame {
 
         add(tabs, BorderLayout.CENTER);
 
-        // Initial Data Load
         refreshAircraft();
         refreshAirports();
         refreshFlights();
 
-        // --- LISTENERS ---
 
-        // Aircraft Actions
         addAcBtn.addActionListener(e -> {
             try {
                 String idStr = JOptionPane.showInputDialog("Enter Aircraft ID:");
@@ -98,7 +92,6 @@ public class RepManagementFrame extends JFrame {
             }
         });
 
-        // FIXED: Edit logic now retrieves existing data and pushes updates
         editAcBtn.addActionListener(e -> {
             int row = aircraftTable.getSelectedRow();
             if (row == -1) {
@@ -107,7 +100,7 @@ public class RepManagementFrame extends JFrame {
             }
 
             try {
-                int id = (int) acModel.getValueAt(row, 0); // Primary key is locked
+                int id = (int) acModel.getValueAt(row, 0);
                 String model = JOptionPane.showInputDialog("Update Model:", acModel.getValueAt(row, 1));
                 String man = JOptionPane.showInputDialog("Update Manufacturer:", acModel.getValueAt(row, 2));
                 int total = Integer.parseInt(JOptionPane.showInputDialog("Update Total Seats:", acModel.getValueAt(row, 3)));
@@ -142,7 +135,6 @@ public class RepManagementFrame extends JFrame {
             }
         });
 
-        // Airport Actions
         addApBtn.addActionListener(e -> {
             String code = JOptionPane.showInputDialog("Airport Code (3 chars):");
             if (code == null) return;
@@ -159,7 +151,6 @@ public class RepManagementFrame extends JFrame {
             if (DatabaseHelper.deleteAirport(code)) refreshAirports();
         });
 
-        // Flight Actions
         addFBtn.addActionListener(e -> {
             try {
                 String fNum = JOptionPane.showInputDialog("Flight Number:");

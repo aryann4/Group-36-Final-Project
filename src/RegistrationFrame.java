@@ -12,7 +12,6 @@ public class RegistrationFrame extends JFrame {
         setLayout(new GridLayout(10, 2, 10, 10));
         setLocationRelativeTo(null);
 
-        // Form Fields
         add(new JLabel(" First Name:"));
         fNameField = new JTextField(); add(fNameField);
 
@@ -44,9 +43,7 @@ public class RegistrationFrame extends JFrame {
         add(backBtn);
 
         
-        // Logic for the Register Button
         registerBtn.addActionListener(e -> {
-            // 1. Gatekeeper Check: Ensure no fields are empty
             if (fNameField.getText().trim().isEmpty() || 
                 lNameField.getText().trim().isEmpty() || 
                 emailField.getText().trim().isEmpty() || 
@@ -56,11 +53,10 @@ public class RegistrationFrame extends JFrame {
                 userField.getText().trim().isEmpty() || 
                 new String(passField.getPassword()).isEmpty()) {
                 
-                JOptionPane.showMessageDialog(this, "All fields are mandatory! Please fill in every box.");
-                return; // Stops the code from reaching the database part below
+                JOptionPane.showMessageDialog(this, "All fields are mandatory, so please fill in every box.");
+                return; 
             }
 
-            // 2. If we passed the check, proceed to registration
             boolean success = DatabaseHelper.registerCustomer(
                 fNameField.getText(), lNameField.getText(), emailField.getText(),
                 phoneField.getText(), addrField.getText(), dobField.getText(),
@@ -68,7 +64,7 @@ public class RegistrationFrame extends JFrame {
             );
 
             if (success) {
-                JOptionPane.showMessageDialog(this, "Account Created! You can now log in.");
+                JOptionPane.showMessageDialog(this, "Account Created You can now log in.");
                 new LoginFrame().setVisible(true);
                 dispose();
             } else {

@@ -17,7 +17,6 @@ public class UserManagementFrame extends JFrame {
 
         JTabbedPane tabs = new JTabbedPane();
 
-        // --- TAB 1: CUSTOMER MANAGEMENT ---
         JPanel custPanel = new JPanel(new BorderLayout());
         String[] custCols = {"ID", "First", "Last", "Email", "Phone", "Username", "Password", "Address"};
         custModel = new DefaultTableModel(custCols, 0);
@@ -31,7 +30,6 @@ public class UserManagementFrame extends JFrame {
         custPanel.add(custBtns, BorderLayout.SOUTH);
         tabs.addTab("Customers", custPanel);
 
-        // --- TAB 2: EMPLOYEE MANAGEMENT ---
         JPanel empPanel = new JPanel(new BorderLayout());
         String[] empCols = {"ID", "First", "Last", "Email", "Phone", "Username", "Password", "Role"};
         empModel = new DefaultTableModel(empCols, 0);
@@ -51,9 +49,6 @@ public class UserManagementFrame extends JFrame {
         refreshCustomers();
         refreshEmployees();
 
-        // --- LISTENERS ---
-
-        // CUSTOMER EDIT LOGIC
         editCustBtn.addActionListener(e -> {
             int row = customerTable.getSelectedRow();
             if (row == -1) {
@@ -77,7 +72,6 @@ public class UserManagementFrame extends JFrame {
             } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error updating customer."); }
         });
 
-        // EMPLOYEE EDIT LOGIC
         editEmpBtn.addActionListener(e -> {
             int row = employeeTable.getSelectedRow();
             if (row == -1) {
@@ -95,7 +89,7 @@ public class UserManagementFrame extends JFrame {
                 String role = JOptionPane.showInputDialog("Role (admin/representative):", empModel.getValueAt(row, 7));
 
                 if (DatabaseHelper.updateEmployee(id, f, l, em, ph, user, pass, role)) {
-                    JOptionPane.showMessageDialog(this, "Employee updated!");
+                    JOptionPane.showMessageDialog(this, "Employee updated.");
                     refreshEmployees();
                 }
             } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error updating employee."); }

@@ -18,23 +18,16 @@ public class AdminDashboard extends JFrame {
         welcomeLabel.setFont(new Font("Arial", Font.BOLD, 22));
         add(welcomeLabel);
 
-        // Requirement: Add, Edit, and Delete info for customers and reps
         JButton userManageBtn = new JButton("User Management (Customers & Staff)");
         add(userManageBtn);
 
-        // Requirement: Sales Reports & Revenue Analytics
         JButton reportsBtn = new JButton("Sales & Financial Reports");
         add(reportsBtn);
 
         JButton logoutBtn = new JButton("Log Out");
         add(logoutBtn);
 
-        // --- Action Listeners ---
-
-        // Launches the user management tool for Customers and Employees
         userManageBtn.addActionListener(e -> new UserManagementFrame().setVisible(true));
-
-        // UPDATED: Now launches the full analytical reports module
         reportsBtn.addActionListener(e -> new AdminReportsFrame().setVisible(true));
 
         logoutBtn.addActionListener(e -> {

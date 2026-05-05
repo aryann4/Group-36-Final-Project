@@ -19,7 +19,6 @@ public class BookingOptionsDialog extends JDialog {
     private final float FLEX_FEE = 50.00f;
     private final float BOOKING_FEE = 25.00f;
 
-    // Updated constructor to accept 6 parameters to match the call from SearchFrame
     public BookingOptionsDialog(Frame parent, String flightNum, String route, String depDetails, String arrDetails, float bPrice) {
         super(parent, "Booking Customization - " + flightNum, true);
         this.flightNum = flightNum;
@@ -28,11 +27,10 @@ public class BookingOptionsDialog extends JDialog {
         this.arrDetails = arrDetails;
         this.flightBasePrice = bPrice;
         
-        setSize(500, 700); // Increased height to fit new labels
+        setSize(500, 700); 
         setLayout(new GridLayout(0, 1, 10, 10));
         setLocationRelativeTo(parent);
 
-        // --- Header info to affirm selection ---
         JPanel header = new JPanel(new GridLayout(3, 1));
         JLabel routeLbl = new JLabel("Route: " + route, SwingConstants.CENTER);
         JLabel depLbl = new JLabel("Departure: " + depDetails, SwingConstants.CENTER);
@@ -43,12 +41,10 @@ public class BookingOptionsDialog extends JDialog {
         header.add(arrLbl);
         add(header);
 
-        // 1. Availability Header
         seatsLeftLabel = new JLabel("Checking availability...", SwingConstants.CENTER);
         seatsLeftLabel.setForeground(Color.BLUE);
         add(seatsLeftLabel);
 
-        // 2. Class Selection
         add(new JLabel("  Select Your Class:"));
         String[] classes = {
             "Economy (Base: $" + flightBasePrice + ")", 
@@ -58,33 +54,27 @@ public class BookingOptionsDialog extends JDialog {
         classBox = new JComboBox<>(classes);
         add(classBox);
 
-        // 3. Quantity Selector
         JPanel qtyPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         qtyPanel.add(new JLabel("  Quantity of Tickets:"));
         qtySpinner = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
         qtyPanel.add(qtySpinner);
         add(qtyPanel);
 
-        // 4. Special Meal
         mealCheckBox = new JCheckBox("  Request Special Meal (No extra charge)");
         add(mealCheckBox);
 
-        // 5. Flexibility
         flexCheckBox = new JCheckBox("  Flexible Ticket (+$50.00 fee)");
         add(flexCheckBox);
 
-        // --- New Disclaimer Label ---
         JLabel feeLabel = new JLabel("* A non-refundable $25.00 booking fee is included in the total.", SwingConstants.CENTER);
         feeLabel.setFont(new Font("Arial", Font.ITALIC, 11));
         add(feeLabel);
 
-        // 6. Pricing Summary
         priceLabel = new JLabel("Total Fare: $0.00", SwingConstants.CENTER);
         priceLabel.setFont(new Font("Arial", Font.BOLD, 18));
         priceLabel.setForeground(new Color(0, 128, 0)); // Dark Green
         add(priceLabel);
 
-        // 7. Action Buttons
         JPanel buttonPanel = new JPanel();
         JButton confirmBtn = new JButton("Confirm & Book");
         JButton cancelBtn = new JButton("Cancel");
@@ -92,7 +82,6 @@ public class BookingOptionsDialog extends JDialog {
         buttonPanel.add(cancelBtn);
         add(buttonPanel);
 
-        // Listeners
         classBox.addActionListener(e -> updateUI());
         flexCheckBox.addActionListener(e -> updateUI());
         qtySpinner.addChangeListener(e -> updateUI());

@@ -12,11 +12,10 @@ public class MyReservationsFrame extends JFrame {
     public MyReservationsFrame(String username) {
         this.username = username;
         setTitle("My Reservations - " + username);
-        setSize(850, 450); // Increased width for extra date/status columns
+        setSize(850, 450); 
         setLayout(new BorderLayout());
         setLocationRelativeTo(null);
 
-        // Columns matches the updated query in DatabaseHelper
         String[] columns = {"Ticket #", "Flight #", "Airline", "Route", "Dep. Date", "Arr. Date", "Class", "Qty", "Flex", "Fare", "Status"};
         model = new DefaultTableModel(columns, 0);
         JTable table = new JTable(model);
@@ -72,23 +71,20 @@ public class MyReservationsFrame extends JFrame {
 
         refreshBtn.addActionListener(e -> refreshData());
 
-        // UPDATED: Cancellation vs. History Clearing Logic
         cancelBtn.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row != -1) {
                 int ticketNum = (int) model.getValueAt(row, 0);
                 String ticketClass = (String) model.getValueAt(row, 6);
-                String displayStatus = (String) model.getValueAt(row, 10); // Calculated Status
+                String displayStatus = (String) model.getValueAt(row, 10); 
 
                 String message;
                 String title = "Confirm Action";
 
                 if (displayStatus.equalsIgnoreCase("completed")) {
-                    // Logic for Past Flights: Clear history with no fee mention
                     message = "Would you like to remove this completed flight #" + ticketNum + " from your history?";
                     title = "Clear History";
                 } else {
-                    // Logic for Active Flights: Standard cancellation with Economy disclaimer
                     message = "Are you sure you want to cancel Ticket #" + ticketNum + "?";
                     if (ticketClass.equalsIgnoreCase("Economy")) {
                         message = "DISCLAIMER: Economy tickets are subject to a $50 cancellation fee.\n" +
@@ -113,7 +109,6 @@ public class MyReservationsFrame extends JFrame {
         int customerId = DatabaseHelper.getCustomerId(username);
         try (ResultSet rs = DatabaseHelper.getCustomerTickets(customerId)) {
             while (rs.next()) {
-                // Combine Date and Time from DB for a live comparison
                 Date arrDate = rs.getDate("arr_date");
                 Time arrTime = rs.getTime("arr_time");
                 
@@ -136,7 +131,7 @@ public class MyReservationsFrame extends JFrame {
                     rs.getInt("quantity"),
                     rs.getBoolean("is_flexible") ? "Yes" : "No",
                     "$" + rs.getFloat("total_fare"),
-                    displayStatus // Use the live-calculated status
+                    displayStatus 
                 });
             }
         } catch (SQLException e) { e.printStackTrace(); }

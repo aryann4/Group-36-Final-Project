@@ -18,7 +18,6 @@ public class QAFrame extends JFrame {
         setLayout(new BorderLayout());
         setLocationRelativeTo(null);
 
-        // --- Top Panel: Search Bar ---
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         topPanel.add(new JLabel("Search FAQs by Keyword:"));
         searchField = new JTextField(25);
@@ -27,19 +26,17 @@ public class QAFrame extends JFrame {
         topPanel.add(searchBtn);
         add(topPanel, BorderLayout.NORTH);
 
-        // --- Center Panel: Results Table ---
         String[] columns = {"Question", "Answer"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Table is read-only
+                return false; 
             }
         };
         qaTable = new JTable(tableModel);
-        qaTable.setRowHeight(40); // Taller rows for readability
+        qaTable.setRowHeight(40); 
         add(new JScrollPane(qaTable), BorderLayout.CENTER);
 
-        // --- Bottom Panel: Action Buttons ---
         JPanel bottomPanel = new JPanel();
         JButton postBtn = new JButton("Post a New Question");
         JButton refreshBtn = new JButton("Refresh List");
@@ -48,8 +45,6 @@ public class QAFrame extends JFrame {
         bottomPanel.add(refreshBtn);
         bottomPanel.add(closeBtn);
         add(bottomPanel, BorderLayout.SOUTH);
-
-        // --- Event Listeners ---
 
         searchBtn.addActionListener(e -> performSearch());
         refreshBtn.addActionListener(e -> performSearch());
@@ -69,7 +64,6 @@ public class QAFrame extends JFrame {
 
         closeBtn.addActionListener(e -> dispose());
 
-        // Initial Load
         performSearch();
     }
 
