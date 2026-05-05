@@ -88,31 +88,11 @@ public class MyReservationsFrame extends JFrame {
                 }
 
             } else if (ticketClass.equalsIgnoreCase("Economy")) {
-                // Economy: two-step confirmation with mandatory fee disclosure
-                int step1 = JOptionPane.showConfirmDialog(this,
-                    "ECONOMY TICKET CANCELLATION POLICY\n\n" +
-                    "Economy tickets are non-refundable without a cancellation fee.\n" +
-                    "A $50.00 fee will be charged for Ticket #" + ticketNum + ".\n\n" +
-                    "Do you understand and wish to proceed?",
-                    "Cancellation Fee Required", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-
-                if (step1 == JOptionPane.YES_OPTION) {
-                    int step2 = JOptionPane.showConfirmDialog(this,
-                        "FINAL CONFIRMATION\n\n" +
-                        "Ticket #" + ticketNum + " will be permanently cancelled.\n" +
-                        "A $50.00 cancellation fee has been recorded against this booking.\n\n" +
-                        "Confirm cancellation?",
-                        "Confirm Economy Cancellation", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-
-                    if (step2 == JOptionPane.YES_OPTION) {
-                        if (DatabaseHelper.cancelBookingWithFee(ticketNum, 50.0f)) {
-                            JOptionPane.showMessageDialog(this,
-                                "Ticket #" + ticketNum + " cancelled.\nA $50.00 cancellation fee has been applied.",
-                                "Cancellation Complete", JOptionPane.INFORMATION_MESSAGE);
-                            refreshData();
-                        }
-                    }
-                }
+                // Economy tickets cannot be cancelled — hard block per project spec
+                JOptionPane.showMessageDialog(this,
+                    "Economy tickets cannot be cancelled.\n\n" +
+                    "Only Business and First class tickets are eligible for cancellation.",
+                    "Cancellation Not Allowed", JOptionPane.WARNING_MESSAGE);
 
             } else {
                 // Business / First — free cancellation
